@@ -44,17 +44,22 @@ export function findSolFunding(tx: ParsedTx, wallet: string): SolFunding | null 
   return null;
 }
 
-/** Net change of `mint` per owner within this transaction. */
-export function tokenDeltas(tx: ParsedTx, mint: string): Map<string, bigint> {
+/** Net change of `mint` per owner, from a transaction's pre/post token balances. */
+export function balanceDeltas(pre: TokenBalance[], post: TokenBalance[], mint: string): Map<string, bigint> {
   const out = new Map<string, bigint>();
-  if (!tx.meta) return out;
   const add = (b: TokenBalance, sign: bigint) => {
     if (b.mint !== mint || !b.owner) return;
     out.set(b.owner, (out.get(b.owner) ?? 0n) + sign * BigInt(b.uiTokenAmount.amount));
   };
-  for (const b of tx.meta.preTokenBalances) add(b, -1n);
-  for (const b of tx.meta.postTokenBalances) add(b, 1n);
+  for (const b of pre) add(b, -1n);
+  for (const b of post) add(b, 1n);
   return out;
+}
+
+/** Net change of `mint` per owner within this transaction. */
+export function tokenDeltas(tx: ParsedTx, mint: string): Map<string, bigint> {
+  if (!tx.meta) return new Map();
+  return balanceDeltas(tx.meta.preTokenBalances, tx.meta.postTokenBalances, mint);
 }
 
 export function lamportDelta(tx: ParsedTx, address: string): bigint {

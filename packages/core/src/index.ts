@@ -15,5 +15,6 @@ export * from "./pump/metadata";
 export * from "./trace/resolveToken";
 export * from "./trace/funders";
 export * from "./trace/devActivity";
+export * from "./trace/holders";
 export * from "./score";
 export * from "./runTrace";

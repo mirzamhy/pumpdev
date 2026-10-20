@@ -11,6 +11,7 @@ export * from "./pump/constants";
 export * from "./pump/borsh";
 export * from "./pump/bondingCurve";
 export * from "./pump/events";
+export * from "./pump/metadata";
 export * from "./trace/resolveToken";
 export * from "./trace/funders";
 export * from "./trace/devActivity";

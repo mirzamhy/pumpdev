@@ -116,6 +116,40 @@ export function encodeTradeEvent(e: TradeEventInput): Uint8Array {
     .build();
 }
 
+export interface MetadataInput {
+  name: string;
+  symbol: string;
+  uri: string;
+}
+
+/** Token-2022 mint with MetadataPointer (18) and TokenMetadata (19) extensions, as create_v2 makes. */
+export function encodeToken2022Mint(m: MetadataInput, mint: string): Uint8Array {
+  const value = new Writer().bytes(new Uint8Array(32)).pubkey(mint).string(m.name).string(m.symbol).string(m.uri).u32(0).build();
+  return new Writer()
+    .bytes(new Uint8Array(165)) // 82-byte base mint, zero-padded to the account-type offset
+    .u8(1) // AccountType::Mint
+    .bytes(Uint8Array.of(18, 0, 64, 0))
+    .bytes(new Uint8Array(64))
+    .bytes(Uint8Array.of(19, 0, value.length & 0xff, value.length >> 8))
+    .bytes(value)
+    .build();
+}
+
+const padded = (s: string, len: number) => s + "\0".repeat(Math.max(0, len - new TextEncoder().encode(s).length));
+
+/** Metaplex metadata account; name/symbol/uri are null-padded to 32/10/200 like real accounts. */
+export function encodeMetaplexMetadata(m: MetadataInput, mint: string): Uint8Array {
+  return new Writer()
+    .u8(4) // Key::MetadataV1
+    .bytes(new Uint8Array(32))
+    .pubkey(mint)
+    .string(padded(m.name, 32))
+    .string(padded(m.symbol, 10))
+    .string(padded(m.uri, 200))
+    .bytes(new Uint8Array(40)) // seller fee, creators, ... (ignored)
+    .build();
+}
+
 export interface BondingCurveInput {
   complete: boolean;
   realQuoteReserves?: bigint;

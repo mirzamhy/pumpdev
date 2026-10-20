@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { DEFAULT_CONFIG } from "../src/config";
 import { bondingCurvePda } from "../src/pda";
-import { PUMP_PROGRAM_ID } from "../src/pump/constants";
+import { PUMP_PROGRAM_ID, TOKEN_2022_PROGRAM_ID } from "../src/pump/constants";
 import { NotPumpTokenError, resolveToken } from "../src/trace/resolveToken";
 import { withTxCache } from "../src/cachedChain";
 import {
@@ -10,6 +10,7 @@ import {
   addr,
   encodeBondingCurve,
   encodeCreateEvent,
+  encodeToken2022Mint,
   encodeTradeEvent,
   makeTx,
   pumpEventIx,
@@ -74,6 +75,32 @@ describe("resolveToken", () => {
     expect(info.createTxFound).toBe(false);
     expect(info.deployer).toBe(NEW_CREATOR);
     expect(info.devInitialBuy).toBeNull();
+  });
+
+  it("fills name, symbol and uri from on-chain metadata when the creation tx is out of reach", async () => {
+    const chain = await world({ creator: NEW_CREATOR, extraSigs: 5 });
+    chain.accounts.set(MINT, {
+      address: MINT,
+      owner: TOKEN_2022_PROGRAM_ID,
+      data: encodeToken2022Mint({ name: "Busy Coin", symbol: "BUSY", uri: "https://m/b.json" }, MINT),
+    });
+    const { info } = await resolveToken(MINT, chain, { ...DEFAULT_CONFIG, pageSize: 2, curveMaxPages: 2 });
+    expect(info).toMatchObject({
+      createTxFound: false,
+      deployer: NEW_CREATOR,
+      name: "Busy Coin",
+      symbol: "BUSY",
+      uri: "https://m/b.json",
+      tokenProgram: TOKEN_2022_PROGRAM_ID,
+    });
+  });
+
+  it("keeps going without a name when metadata lookup fails", async () => {
+    const chain = await world({ creator: NEW_CREATOR, extraSigs: 5 });
+    const getAccount = chain.getAccount.bind(chain);
+    chain.getAccount = async (a) => (a === MINT ? Promise.reject(new Error("rpc down")) : getAccount(a));
+    const { info } = await resolveToken(MINT, chain, { ...DEFAULT_CONFIG, pageSize: 2, curveMaxPages: 2 });
+    expect(info).toMatchObject({ createTxFound: false, deployer: NEW_CREATOR, name: null });
   });
 
   it("uses a creation signature known from an earlier trace without walking history", async () => {

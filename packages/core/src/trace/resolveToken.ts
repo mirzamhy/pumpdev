@@ -6,6 +6,7 @@ import { bondingCurvePda } from "../pda";
 import { decodeBondingCurve, type BondingCurveState } from "../pump/bondingCurve";
 import { PUMP_PROGRAM_ID } from "../pump/constants";
 import type { CreateEvent } from "../pump/events";
+import { fetchTokenMetadata } from "../pump/metadata";
 import { collectSignatures } from "../signatures";
 import { pumpEvents } from "../tx";
 
@@ -79,12 +80,15 @@ export async function resolveToken(
   const deployer = create?.user ?? curve.creator;
   if (!deployer) throw new NotPumpTokenError("Could not determine who deployed this token.");
 
+  // Without the creation tx, still show what the token is called; a failed lookup only costs the name.
+  const meta = create ? null : await fetchTokenMetadata(chain, mint).catch(() => null);
+
   const info: TokenInfo = {
     mint,
-    name: create?.name ?? null,
-    symbol: create?.symbol ?? null,
-    uri: create?.uri ?? null,
-    tokenProgram: create?.tokenProgram ?? null,
+    name: create?.name ?? meta?.name ?? null,
+    symbol: create?.symbol ?? meta?.symbol ?? null,
+    uri: create?.uri ?? meta?.uri ?? null,
+    tokenProgram: create?.tokenProgram ?? meta?.tokenProgram ?? null,
     quoteMint: curve.quoteMint,
     deployer,
     creatorCurrent: curve.creator,

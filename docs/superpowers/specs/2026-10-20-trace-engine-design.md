@@ -260,4 +260,6 @@ Tidak mengubah apa yang dilihat user, kecuali poin 11.
 11. Persen "released" dev juga menghitung selisih antara yang dibeli dan saldo sekarang, supaya penjualan yang lebih tua dari jendela scan tetap terlihat.
 12. Riwayat dev juga mencocokkan field `creator` (launch lewat tool pihak ketiga ditandatangani bot). Wallet `unknown_origin` dicek ulang setelah 1 hari.
 
+13. Kalau transaksi create tidak ketemu, nama/simbol/uri diambil dari metadata on-chain: extension TokenMetadata di mint Token-2022, atau akun metadata Metaplex untuk mint SPL lama.
+
 Catatan uji: `docs/spikes/2026-10-20-live-rpc.md`.

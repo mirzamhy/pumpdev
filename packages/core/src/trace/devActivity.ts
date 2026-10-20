@@ -53,9 +53,11 @@ async function buildHistory(
   for (const { tx } of txs) {
     const events = pumpEvents(tx);
     for (const e of events) {
-      if (e.kind !== "create" || e.event.user !== dev || e.event.mint === token.mint) continue;
+      // Launchpad tools sign `create` for the user and pass the user as `creator`, so match either.
+      if (e.kind !== "create" || (e.event.user !== dev && e.event.creator !== dev) || e.event.mint === token.mint) continue;
       const mint = e.event.mint;
-      const buy = events.find((t) => t.kind === "trade" && t.event.mint === mint && t.event.user === dev && t.event.isBuy);
+      const signer = e.event.user;
+      const buy = events.find((t) => t.kind === "trade" && t.event.mint === mint && t.event.user === signer && t.event.isBuy);
       created.set(mint, {
         ev: e.event,
         createdAt: e.event.timestamp ?? tx.blockTime,

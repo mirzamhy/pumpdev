@@ -136,6 +136,25 @@ describe("analyzeDev", () => {
     });
   });
 
+  it("counts launches signed by a launchpad tool with the dev as creator", async () => {
+    const chain = new FakeChain();
+    const BOT = addr(50);
+    const LAUNCHED = addr(24);
+    const pda = await bondingCurvePda(LAUNCHED);
+    chain.accounts.set(pda, { address: pda, owner: PUMP_PROGRAM_ID, data: encodeBondingCurve({ complete: false, creator: DEV }) });
+    const tx = makeTx({
+      signature: "viaBot",
+      blockTime: NOW - 2 * DAY,
+      inner: [
+        pumpEventIx(encodeCreateEvent({ name: "Bot", symbol: "BOT", uri: "u", mint: LAUNCHED, bondingCurve: pda, user: BOT, creator: DEV, timestamp: NOW - 2 * DAY })),
+        pumpEventIx(encodeTradeEvent({ mint: LAUNCHED, solAmount: 1n, tokenAmount: 300n, isBuy: true, user: BOT, timestamp: NOW - 2 * DAY })),
+      ],
+    });
+    chain.setHistory(DEV, [{ signature: "viaBot", tx }]);
+    const { history } = await analyzeDev(token, chain, DEFAULT_CONFIG, NOW);
+    expect(history.map((t) => [t.mint, t.initialBuy, t.status])).toEqual([[LAUNCHED, "300", "dead_dev_exited"]]);
+  });
+
   it("flags partial results when the scan does not reach the launch", async () => {
     const { history, historyPartial, status } = await analyzeDev(token, await world(), { ...DEFAULT_CONFIG, devTxScan: 2 }, NOW);
     expect(history).toEqual([]);

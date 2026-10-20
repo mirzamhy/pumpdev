@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { ChainNode, DevStatus, DevToken, TokenInfo } from "@pumpfun/shared";
+import type { ChainNode, DevStatus, DevToken, HolderAnalysis, TokenInfo } from "@pumpfun/shared";
 import { computeScore, riskLevel, type ScoreInput } from "../src/score";
 
 const token: TokenInfo = {
@@ -21,7 +21,7 @@ const token: TokenInfo = {
   createTxFound: true,
 };
 
-const base: ScoreInput = { token, nodes: [], devHistory: [], devStatus: null, taintedFunders: [], incomplete: false };
+const base: ScoreInput = { token, nodes: [], devHistory: [], devStatus: null, taintedFunders: [], holders: null, incomplete: false };
 
 const devToken = (status: DevToken["status"]): DevToken => ({
   mint: Math.random().toString(),
@@ -127,9 +127,62 @@ describe("computeScore", () => {
       devHistory: [devToken("dead_dev_exited"), devToken("dead_dev_exited"), devToken("dead_dev_exited")],
       devStatus: devStatus({ releasedPct: 100, transferredOut: "5", transfers: [{ to: "W", amount: "5", signature: "x" }] }),
       taintedFunders: [{ wallet: "F", deadCount: 1 }],
+      holders: null,
       incomplete: true,
     });
     expect(s).toMatchObject({ score: 100, level: "high", incomplete: true });
     expect(s.factors.map((f) => f.id)).toEqual(["serialDeadDev", "devReleased", "devTransferOut", "freshFunding", "taintedFunder"]);
+  });
+});
+
+const holders = (over: Partial<HolderAnalysis>): HolderAnalysis => ({
+  available: true,
+  reason: null,
+  holderCount: 100,
+  totalSupply: "1000000",
+  top: [],
+  clusters: [],
+  earlyBuyers: [],
+  bundlePct: 0,
+  insiderPct: 0,
+  top10Pct: 30,
+  freshCount: 0,
+  repeatSnipers: [],
+  ...over,
+});
+
+describe("holder factors", () => {
+  it("adds nothing for a clean holder base or an unavailable analysis", () => {
+    expect(computeScore({ ...base, holders: holders({}) }).factors).toEqual([]);
+    expect(computeScore({ ...base, holders: { ...holders({ bundlePct: 50 }), available: false } }).factors).toEqual([]);
+  });
+
+  it("flags bundle, insider share, clusters, fresh holders and repeat snipers", () => {
+    const s = computeScore({
+      ...base,
+      holders: holders({
+        bundlePct: 12.5,
+        insiderPct: 31,
+        clusters: [
+          { id: 1, members: ["a", "b"], pct: 40, linkedToDev: false, sharedFunder: null },
+          { id: 2, members: ["c", "d", "e"], pct: 14.2, linkedToDev: false, sharedFunder: "F" },
+        ],
+        freshCount: 6,
+        repeatSnipers: [{ wallet: "s", count: 4 }],
+      }),
+    });
+    expect(s.factors).toEqual([
+      { id: "bundleHeld", points: 20, reason: "Wallets that bought in the launch block still hold 12.5% of supply." },
+      { id: "insiderSupply", points: 20, reason: "Dev-linked and launch-block wallets hold 31.0% of supply." },
+      { id: "holderCluster", points: 15, reason: "3 top holders that look like one owner hold 14.2% of supply." },
+      { id: "freshHolders", points: 10, reason: "6 of the top 20 holders are wallets less than a day old." },
+      { id: "repeatSniper", points: 10, reason: "1 launch-block buyer also bought early in 3+ other tokens we traced." },
+    ]);
+    expect(s.score).toBe(75);
+  });
+
+  it("stays below thresholds", () => {
+    const s = computeScore({ ...base, holders: holders({ bundlePct: 9.9, insiderPct: 19.9, freshCount: 4, clusters: [{ id: 1, members: ["a", "b", "c"], pct: 9.9, linkedToDev: true, sharedFunder: null }] }) });
+    expect(s.factors).toEqual([]);
   });
 });

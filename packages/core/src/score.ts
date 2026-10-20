@@ -1,9 +1,11 @@
 import {
+  formatPct,
   formatTokenAmount,
   shortAddress,
   type ChainNode,
   type DevStatus,
   type DevToken,
+  type HolderAnalysis,
   type RiskFactor,
   type RiskLevel,
   type RiskScore,
@@ -11,13 +13,18 @@ import {
 } from "@pumpfun/shared";
 import type { TaintedFunder } from "./store";
 
-/** Calibrate here. Spec section 6.6. */
+/** Calibrate here. Spec section 6.6 (sub-project 1) and section 5 (holders, sub-project 2). */
 export const RISK_WEIGHTS = {
   serialDeadDev: 30,
   devReleased: 25,
   devTransferOut: 15,
   freshFunding: 10,
   taintedFunder: 20,
+  bundleHeld: 20,
+  insiderSupply: 20,
+  holderCluster: 15,
+  freshHolders: 10,
+  repeatSniper: 10,
 } as const;
 
 export interface ScoreInput {
@@ -26,6 +33,7 @@ export interface ScoreInput {
   devHistory: DevToken[];
   devStatus: DevStatus | null;
   taintedFunders: TaintedFunder[];
+  holders: HolderAnalysis | null;
   incomplete: boolean;
 }
 
@@ -90,6 +98,51 @@ export function computeScore(input: ScoreInput): RiskScore {
     });
   }
 
+  factors.push(...holderFactors(input.holders));
+
   const score = Math.min(100, factors.reduce((sum, f) => sum + f.points, 0));
   return { score, level: riskLevel(score), factors, incomplete: input.incomplete };
+}
+
+function holderFactors(h: HolderAnalysis | null): RiskFactor[] {
+  if (!h?.available) return [];
+  const factors: RiskFactor[] = [];
+  if (h.bundlePct !== null && h.bundlePct >= 10) {
+    factors.push({
+      id: "bundleHeld",
+      points: RISK_WEIGHTS.bundleHeld,
+      reason: `Wallets that bought in the launch block still hold ${formatPct(h.bundlePct)} of supply.`,
+    });
+  }
+  if (h.insiderPct !== null && h.insiderPct >= 20) {
+    factors.push({
+      id: "insiderSupply",
+      points: RISK_WEIGHTS.insiderSupply,
+      reason: `Dev-linked and launch-block wallets hold ${formatPct(h.insiderPct)} of supply.`,
+    });
+  }
+  const cluster = h.clusters.find((c) => c.members.length >= 3 && c.pct >= 10);
+  if (cluster) {
+    factors.push({
+      id: "holderCluster",
+      points: RISK_WEIGHTS.holderCluster,
+      reason: `${cluster.members.length} top holders that look like one owner hold ${formatPct(cluster.pct)} of supply.`,
+    });
+  }
+  if (h.freshCount >= 5) {
+    factors.push({
+      id: "freshHolders",
+      points: RISK_WEIGHTS.freshHolders,
+      reason: `${h.freshCount} of the top 20 holders are wallets less than a day old.`,
+    });
+  }
+  if (h.repeatSnipers.length > 0) {
+    const n = h.repeatSnipers.length;
+    factors.push({
+      id: "repeatSniper",
+      points: RISK_WEIGHTS.repeatSniper,
+      reason: `${plural(n, "launch-block buyer")} also bought early in 3+ other tokens we traced.`,
+    });
+  }
+  return factors;
 }

@@ -1,4 +1,4 @@
-import type { ChainNode, Crosslink, StepName, TraceEvent, TraceResult } from "@pumpfun/shared";
+import type { ChainNode, Crosslink, HolderAnalysis, StepName, TraceEvent, TraceResult } from "@pumpfun/shared";
 import { withTxCache } from "./cachedChain";
 import type { ChainSource } from "./chain";
 import { DEFAULT_CONFIG, type TraceConfig } from "./config";
@@ -6,6 +6,7 @@ import { computeScore } from "./score";
 import type { Store, TaintedFunder } from "./store";
 import { analyzeDev, type DevActivity } from "./trace/devActivity";
 import { traceChain } from "./trace/funders";
+import { analyzeHolders } from "./trace/holders";
 import { resolveToken } from "./trace/resolveToken";
 
 export interface TraceDeps {
@@ -68,6 +69,9 @@ export async function runTrace(mint: string, deps: TraceDeps): Promise<TraceResu
   emit({ type: "devHistory", data: { tokens: devHistory, partial: devHistoryPartial } });
   if (devStatus) emit({ type: "devStatus", data: devStatus });
 
+  const holders = await step<HolderAnalysis | null>("holders", null, () => analyzeHolders({ token, nodes, devStatus }, chain, store, cfg, now()));
+  if (holders) emit({ type: "holders", data: holders });
+
   // Exchange-like wallets link everything to everything, so they never count as links.
   const linkable = nodes.filter((n) => n.terminal !== "high_activity").map((n) => n.address);
   const insiders = devStatus?.transfers.map((t) => t.to) ?? [];
@@ -90,6 +94,7 @@ export async function runTrace(mint: string, deps: TraceDeps): Promise<TraceResu
     devHistory,
     devStatus,
     taintedFunders,
+    holders,
     incomplete:
       partial || !token.createTxFound || (devStatus?.partial ?? true) || nodes.some((n) => n.terminal === "incomplete"),
   });
@@ -102,7 +107,7 @@ export async function runTrace(mint: string, deps: TraceDeps): Promise<TraceResu
     devHistory,
     devHistoryPartial,
     devStatus,
-    holders: null,
+    holders,
     crosslinks,
     score,
     partial,

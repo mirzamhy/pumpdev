@@ -37,6 +37,19 @@ describe("runTrace", () => {
     expect(types.indexOf("token")).toBeLessThan(types.indexOf("node"));
     expect(types.indexOf("score")).toBeLessThan(types.indexOf("done"));
     expect(events.at(-1)).toEqual({ type: "done", data: { partial: false } });
+
+    expect(result.holders).toMatchObject({ available: true, holderCount: 3, bundlePct: 5, insiderPct: 9 });
+    expect(result.holders?.earlyBuyers).toEqual([{ wallet: s.bundler, slotOffset: 0, bought: "500", holding: "500" }]);
+    expect(types.indexOf("devStatus")).toBeLessThan(types.indexOf("holders"));
+    expect(events).toContainEqual({ type: "step", data: { step: "holders", state: "done" } });
+  });
+
+  it("keeps going when the holder step fails", async () => {
+    const { events, result } = await trace({ mutate: (s) => s.chain.accounts.delete(s.mint) });
+    expect(events).toContainEqual({ type: "step", data: { step: "holders", state: "incomplete" } });
+    expect(result.holders).toBeNull();
+    expect(result.partial).toBe(true);
+    expect(result.score.incomplete).toBe(true);
   });
 
   it("adds the tainted-funder factor from the store", async () => {

@@ -1,6 +1,6 @@
 import { bondingCurvePda } from "../pda";
-import { PUMP_PROGRAM_ID } from "../pump/constants";
-import { addr, encodeBondingCurve, encodeCreateEvent, encodeTradeEvent } from "./encode";
+import { PUMP_PROGRAM_ID, TOKEN_2022_PROGRAM_ID } from "../pump/constants";
+import { addr, encodeBondingCurve, encodeCreateEvent, encodeToken2022Mint, encodeTradeEvent } from "./encode";
 import { FakeChain } from "./fakeChain";
 import { makeTx, pumpEventIx, systemTransfer, tokenBal } from "./tx";
 
@@ -10,6 +10,8 @@ export interface Scenario {
   deployer: string;
   funder: string;
   insider: string;
+  /** Bought in the creation slot; holds 5% of supply. */
+  bundler: string;
   now: number;
   createdAt: number;
 }
@@ -17,6 +19,7 @@ export interface Scenario {
 /**
  * One token, deployed by a wallet funded 10 minutes before launch.
  * The dev bought 1000, sold 600, moved 100 to an insider, holds 300.
+ * Supply is 10,000; a bundler bought in the creation slot and still holds 500 (5%).
  */
 export async function createScenario(): Promise<Scenario> {
   const chain = new FakeChain();
@@ -71,5 +74,17 @@ export async function createScenario(): Promise<Scenario> {
   chain.setHistory(funder, [{ signature: "funder-own", tx: funderTx }]);
 
   chain.holdings.set(deployer, [{ mint, amount: "300" }]);
-  return { chain, mint, deployer, funder, insider, now, createdAt };
+
+  const bundler = addr(50);
+  chain.accounts.set(mint, { address: mint, owner: TOKEN_2022_PROGRAM_ID, data: encodeToken2022Mint({ name: "Test Coin", symbol: "TEST", uri: "u" }, mint, 10_000n) });
+  chain.mintHolders.set(mint, [
+    { owner: curve, amount: "8000" },
+    { owner: deployer, amount: "300" },
+    { owner: insider, amount: "100" },
+    { owner: bundler, amount: "500" },
+  ]);
+  chain.blocks.set(createTx.slot, [
+    { signature: "bundle-buy", preTokenBalances: [], postTokenBalances: [tokenBal(4, mint, bundler, 500)] },
+  ]);
+  return { chain, mint, deployer, funder, insider, bundler, now, createdAt };
 }

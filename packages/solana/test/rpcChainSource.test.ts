@@ -23,13 +23,13 @@ describe("RpcChainSource", () => {
       getSignaturesForAddress: () => [{ signature: "s1", slot: 5, blockTime: 9, err: null, memo: null, confirmationStatus: "finalized" }],
     });
     expect(await chain.getSignatures("W", { before: "s0", limit: 10 })).toEqual([{ signature: "s1", slot: 5, blockTime: 9, err: null }]);
-    expect(seen[0]!.params).toEqual(["W", { limit: 10, before: "s0", commitment: "finalized" }]);
+    expect(seen[0]!.params).toEqual(["W", { limit: 10, before: "s0", commitment: "confirmed" }]);
   });
 
   it("requests jsonParsed transactions up to version 1", async () => {
     const { chain, seen } = source({ getTransaction: () => null });
     expect(await chain.getTransaction("sig")).toBeNull();
-    expect(seen[0]!.params).toEqual(["sig", { encoding: "jsonParsed", maxSupportedTransactionVersion: 1, commitment: "finalized" }]);
+    expect(seen[0]!.params).toEqual(["sig", { encoding: "jsonParsed", maxSupportedTransactionVersion: 1, commitment: "confirmed" }]);
   });
 
   it("decodes base64 account data", async () => {
@@ -88,7 +88,7 @@ describe("RpcChainSource", () => {
     expect(await chain.getBlockTokenChanges(77)).toEqual([{ signature: "ok", preTokenBalances: [], postTokenBalances: [bal] }]);
     expect(seen[0]!.params).toEqual([
       77,
-      { encoding: "jsonParsed", transactionDetails: "accounts", maxSupportedTransactionVersion: 1, rewards: false, commitment: "finalized" },
+      { encoding: "jsonParsed", transactionDetails: "accounts", maxSupportedTransactionVersion: 1, rewards: false, commitment: "confirmed" },
     ]);
   });
 

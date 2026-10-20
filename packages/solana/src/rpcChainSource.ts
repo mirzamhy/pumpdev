@@ -37,13 +37,17 @@ function toAccount(address: string, raw: RawAccount | null): AccountData | null 
   return { address, owner: raw.owner, data: new Uint8Array(Buffer.from(raw.data[0], "base64")) };
 }
 
+/**
+ * Everything reads at `confirmed`: the screener traces tokens seconds after launch, when `finalized`
+ * history does not have the creation transaction yet.
+ */
 export class RpcChainSource implements ChainSource {
   constructor(private readonly pool: RpcPool) {}
 
   async getSignatures(address: string, opts: { before?: string; limit: number }): Promise<SignatureInfo[]> {
     const rows = await this.pool.call<{ signature: string; slot: number; blockTime: number | null; err: unknown }[]>(
       "getSignaturesForAddress",
-      [address, { limit: opts.limit, before: opts.before, commitment: "finalized" }],
+      [address, { limit: opts.limit, before: opts.before, commitment: "confirmed" }],
     );
     return rows.map((r) => ({ signature: r.signature, slot: r.slot, blockTime: r.blockTime ?? null, err: r.err ?? null }));
   }
@@ -51,7 +55,7 @@ export class RpcChainSource implements ChainSource {
   getTransaction(signature: string): Promise<ParsedTx | null> {
     return this.pool.call<ParsedTx | null>("getTransaction", [
       signature,
-      { encoding: "jsonParsed", maxSupportedTransactionVersion: 1, commitment: "finalized" },
+      { encoding: "jsonParsed", maxSupportedTransactionVersion: 1, commitment: "confirmed" },
     ]);
   }
 
@@ -103,7 +107,7 @@ export class RpcChainSource implements ChainSource {
     try {
       block = await this.pool.call<RawBlock | null>("getBlock", [
         slot,
-        { encoding: "jsonParsed", transactionDetails: "accounts", maxSupportedTransactionVersion: 1, rewards: false, commitment: "finalized" },
+        { encoding: "jsonParsed", transactionDetails: "accounts", maxSupportedTransactionVersion: 1, rewards: false, commitment: "confirmed" },
       ]);
     } catch (err) {
       if (err instanceof RpcError && err.code !== undefined && NO_BLOCK_CODES.has(err.code)) return [];

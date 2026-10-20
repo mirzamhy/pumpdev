@@ -27,7 +27,7 @@ function Stat({ label, value, warn = false }: { label: string; value: string; wa
 export function HoldersCard({ holders, loading }: { holders: HolderAnalysis | null; loading: boolean }) {
   const navigate = useNavigate();
   if (!holders) {
-    return <Card title="Holders">{loading ? <Skeleton className="h-48" /> : <p className="text-sm text-muted">Could not load holders.</p>}</Card>;
+    return <Card title="Holders">{loading ? <Skeleton className="h-48" /> : <p className="text-sm text-muted">Holder analysis did not finish (RPC error or time limit). Try the trace again in a minute.</p>}</Card>;
   }
   if (!holders.available) {
     return (

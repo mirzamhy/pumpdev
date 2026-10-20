@@ -44,8 +44,19 @@ describe("runTrace", () => {
     expect(events).toContainEqual({ type: "step", data: { step: "holders", state: "done" } });
   });
 
-  it("keeps going when the holder step fails", async () => {
-    const { events, result } = await trace({ mutate: (s) => s.chain.accounts.delete(s.mint) });
+  it("keeps going when the holder step fails, and reports the error", async () => {
+    const s = await createScenario();
+    s.chain.accounts.delete(s.mint);
+    const failures: string[] = [];
+    const events: TraceEvent[] = [];
+    const result = await runTrace(s.mint, {
+      chain: s.chain,
+      store: new MemoryStore(),
+      emit: (e) => events.push(e),
+      now: () => s.now,
+      onStepError: (step, err) => failures.push(`${step}: ${(err as Error).message}`),
+    });
+    expect(failures).toEqual(["holders: mint account not found"]);
     expect(events).toContainEqual({ type: "step", data: { step: "holders", state: "incomplete" } });
     expect(result.holders).toBeNull();
     expect(result.partial).toBe(true);

@@ -20,6 +20,7 @@ try {
     chain,
     store,
     emit: (e) => console.log(stamp(), e.type, JSON.stringify(e.data).slice(0, 240)),
+    onStepError: (step, err) => console.error(stamp(), `step ${step} failed:`, err),
   });
   store.saveResult(result);
   console.log(stamp(), "score", JSON.stringify(result.score, null, 2));

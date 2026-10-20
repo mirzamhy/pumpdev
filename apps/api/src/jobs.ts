@@ -90,6 +90,7 @@ export class JobManager {
         signal: controller.signal,
         now: this.deps.now,
         config: this.deps.traceConfig,
+        onStepError: (step, err) => this.deps.log?.(`step ${step} failed for ${job.mint}`, err),
       });
       this.deps.store.saveResult(result);
       this.deps.store.finishJob(job.id, "done", result.partial, Date.now());

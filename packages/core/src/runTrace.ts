@@ -16,6 +16,8 @@ export interface TraceDeps {
   now?: () => number;
   signal?: AbortSignal;
   config?: Partial<TraceConfig>;
+  /** Called when a step fails; the trace still continues with partial data. */
+  onStepError?: (step: StepName, err: unknown) => void;
 }
 
 export async function runTrace(mint: string, deps: TraceDeps): Promise<TraceResult> {
@@ -38,8 +40,9 @@ export async function runTrace(mint: string, deps: TraceDeps): Promise<TraceResu
       const value = await fn();
       mark(name, "done");
       return value;
-    } catch {
+    } catch (err) {
       partial = true;
+      deps.onStepError?.(name, err);
       mark(name, "incomplete");
       return fallback;
     }

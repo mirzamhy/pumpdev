@@ -1,10 +1,10 @@
 import { useMemo } from "react";
-import { forceCenter, forceCollide, forceLink, forceManyBody, forceSimulation, type SimulationLinkDatum, type SimulationNodeDatum } from "d3-force";
+import { forceCollide, forceLink, forceManyBody, forceSimulation, forceX, forceY, type SimulationLinkDatum, type SimulationNodeDatum } from "d3-force";
 import { formatPct, shortAddress, type Holder, type HolderCluster } from "@pumpfun/shared";
 
 /** Distinguishable on the dark surface; cluster n uses CLUSTER_COLORS[(n - 1) % length]. */
 export const CLUSTER_COLORS = ["#7cf5b4", "#7cb8f5", "#f5a97c", "#c99cf5", "#f5e27c", "#7cf0f5", "#f58cc8", "#b4f57c"];
-const UNCLUSTERED = "#33423a";
+const UNCLUSTERED = "#3d5146";
 const FLAGGED = new Set(["dev", "insider", "bundle"]);
 
 interface BubbleNode extends SimulationNodeDatum {
@@ -24,9 +24,11 @@ function layout(holders: Holder[], clusters: HolderCluster[]) {
   // Star-link each cluster to its largest member so members settle next to each other.
   const links: SimulationLinkDatum<BubbleNode>[] = clusters.flatMap((c) => c.members.slice(1).map((m) => ({ source: c.members[0]!, target: m })));
   const sim = forceSimulation(nodes)
-    .force("charge", forceManyBody().strength(-25))
-    .force("collide", forceCollide<BubbleNode>((d) => d.r + 3))
-    .force("center", forceCenter(0, 0))
+    .force("charge", forceManyBody().strength(-6))
+    .force("collide", forceCollide<BubbleNode>((d) => d.r + 3).iterations(2))
+    // Pull everything toward the middle so unclustered bubbles pack instead of drifting apart.
+    .force("x", forceX(0).strength(0.12))
+    .force("y", forceY(0).strength(0.12))
     .force(
       "link",
       forceLink<BubbleNode, SimulationLinkDatum<BubbleNode>>(links)

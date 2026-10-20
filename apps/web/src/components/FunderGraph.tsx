@@ -57,6 +57,7 @@ export function FunderGraph({ nodes, selected, onSelect }: { nodes: ChainNode[];
         edges={edges}
         nodeTypes={nodeTypes}
         fitView
+        fitViewOptions={{ maxZoom: 1 }}
         colorMode="dark"
         nodesConnectable={false}
         onNodeClick={(_, node) => onSelect(node.data.node.address)}

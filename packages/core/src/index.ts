@@ -11,3 +11,4 @@ export * from "./pump/borsh";
 export * from "./pump/bondingCurve";
 export * from "./pump/events";
 export * from "./trace/resolveToken";
+export * from "./trace/funders";

@@ -21,6 +21,7 @@ try {
     store,
     emit: (e) => console.log(stamp(), e.type, JSON.stringify(e.data).slice(0, 240)),
   });
+  store.saveResult(result);
   console.log(stamp(), "score", JSON.stringify(result.score, null, 2));
 } finally {
   store.close();

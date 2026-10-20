@@ -4,13 +4,19 @@ import type { SqliteStore } from "@pumpfun/db";
 import type { TraceEvent } from "@pumpfun/shared";
 
 export type JobListener = (seq: number, event: TraceEvent) => void;
+export type JobPriority = "user" | "auto";
 
 interface Job {
   id: string;
   mint: string;
+  priority: JobPriority;
+  running: boolean;
   seq: number;
   listeners: Set<JobListener>;
 }
+
+/** Background traces never take more than this many slots, so a user's trace always finds one. */
+const MAX_AUTO_RUNNING = 1;
 
 export interface JobManagerDeps {
   store: SqliteStore;
@@ -22,26 +28,45 @@ export interface JobManagerDeps {
   log?: (message: string, err?: unknown) => void;
 }
 
-/** In-process queue. One job per mint at a time; events are persisted so streams can replay. */
+/**
+ * In-process queue. One job per mint at a time; events are persisted so streams can replay.
+ * User traces are served before background ("auto") traces.
+ */
 export class JobManager {
   private readonly byMint = new Map<string, Job>();
   private readonly byId = new Map<string, Job>();
-  private readonly queue: Job[] = [];
+  private readonly userQueue: Job[] = [];
+  private autoQueue: Job[] = [];
   private running = 0;
+  private autoRunning = 0;
   private idleWaiters: (() => void)[] = [];
 
   constructor(private readonly deps: JobManagerDeps) {}
 
-  start(mint: string): string {
+  start(mint: string, priority: JobPriority = "user"): string {
     const existing = this.byMint.get(mint);
-    if (existing) return existing.id;
-    const job: Job = { id: randomUUID(), mint, seq: 0, listeners: new Set() };
+    if (existing) {
+      if (priority === "user" && existing.priority === "auto" && !existing.running) {
+        this.autoQueue = this.autoQueue.filter((j) => j !== existing);
+        existing.priority = "user";
+        this.userQueue.push(existing);
+        this.pump();
+      }
+      return existing.id;
+    }
+    const job: Job = { id: randomUUID(), mint, priority, running: false, seq: 0, listeners: new Set() };
     this.byMint.set(mint, job);
     this.byId.set(job.id, job);
     this.deps.store.createJob(job.id, mint, Date.now());
-    this.queue.push(job);
+    (priority === "user" ? this.userQueue : this.autoQueue).push(job);
     this.pump();
     return job.id;
+  }
+
+  stateOf(mint: string): "queued" | "running" | null {
+    const job = this.byMint.get(mint);
+    if (!job) return null;
+    return job.running ? "running" : "queued";
   }
 
   /** Returns null when the job is not running (finished or unknown); replay from the store instead. */
@@ -53,18 +78,33 @@ export class JobManager {
   }
 
   whenIdle(): Promise<void> {
-    if (this.running === 0 && this.queue.length === 0) return Promise.resolve();
+    if (this.idle()) return Promise.resolve();
     return new Promise((resolve) => this.idleWaiters.push(resolve));
   }
 
+  private idle(): boolean {
+    return this.running === 0 && this.userQueue.length === 0 && this.autoQueue.length === 0;
+  }
+
+  private next(): Job | undefined {
+    if (this.userQueue.length > 0) return this.userQueue.shift();
+    if (this.autoRunning < MAX_AUTO_RUNNING) return this.autoQueue.shift();
+    return undefined;
+  }
+
   private pump(): void {
-    while (this.running < this.deps.concurrency && this.queue.length > 0) {
-      const job = this.queue.shift()!;
+    while (this.running < this.deps.concurrency) {
+      const job = this.next();
+      if (!job) break;
+      const auto = job.priority === "auto";
+      job.running = true;
       this.running++;
+      if (auto) this.autoRunning++;
       void this.run(job).finally(() => {
         this.running--;
+        if (auto) this.autoRunning--;
         this.pump();
-        if (this.running === 0 && this.queue.length === 0) {
+        if (this.idle()) {
           const waiters = this.idleWaiters;
           this.idleWaiters = [];
           for (const resolve of waiters) resolve();

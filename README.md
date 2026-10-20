@@ -2,6 +2,8 @@
 
 Paste a pump.fun token address and see who funded the dev: the dev wallet's first SOL, traced back up to 5 wallets, the dev's other launches, whether the dev sold or moved tokens, links to other traced tokens, and a heuristic risk score. For tokens still on the bonding curve it also maps the holders: top 20 as a bubble map, wallets that look like one owner, launch-block buyers (bundles and snipers), fresh wallets, repeat snipers and the insider share of supply.
 
+The live screener (`/screener`) lists every new pump.fun launch within seconds: age, market cap, bonding-curve progress, copycat tickers, dumps (curve gave back most of its progress), and the risk score once traced. Tokens that sell 40% of their curve in their first 15 minutes are traced automatically in the background, up to 20 per hour; any other token is traced when someone opens it. New tokens come from PumpPortal's free websocket (create and migration events only); curve numbers come from public RPC.
+
 Not financial advice. All data comes from public Solana RPC.
 
 ## Develop
@@ -24,7 +26,7 @@ pnpm --filter @pumpfun/api smoke <MINT>   # one trace against live RPC
 - `packages/solana`: rate-limited Solana RPC client
 - `packages/db`: SQLite cache, jobs and results
 - `packages/shared`: types shared by API and web
-- `apps/api`: Fastify API with SSE streaming
+- `apps/api`: Fastify API with SSE streaming, live feed ingestion (`src/feed`)
 - `apps/web`: React SPA
 
 ## Deploy (one VPS)
@@ -43,4 +45,4 @@ Update: `git pull && docker compose up -d --build`. The SQLite database lives in
 
 ## Capacity
 
-Public RPC allows about 4 transaction lookups per second per IP. A trace with nothing cached takes roughly 2–5 minutes (holder analysis adds 1–2 minutes) (busy tokens take longest, because their bonding-curve history is long); cached wallets and known creation transactions make repeat traces fast. To go faster, register free-tier keys with RPC providers and append them to `RPC_URLS` (format `url|rps|perMethodRps`).
+Public RPC allows about 4 transaction lookups per second per IP. A trace with nothing cached takes roughly 2–5 minutes (holder analysis adds 1–2 minutes) (busy tokens take longest, because their bonding-curve history is long); cached wallets and known creation transactions make repeat traces fast. The screener adds about one `getMultipleAccounts` call every 20 seconds per 100 young tokens, and one background trace at a time; user traces always go first. Set `FEED_ENABLED=false` to turn the screener's ingestion off. To go faster, register free-tier keys with RPC providers and append them to `RPC_URLS` (format `url|rps|perMethodRps`).

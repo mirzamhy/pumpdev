@@ -14,3 +14,4 @@ export * from "./trace/resolveToken";
 export * from "./trace/funders";
 export * from "./trace/devActivity";
 export * from "./score";
+export * from "./runTrace";

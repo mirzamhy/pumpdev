@@ -83,6 +83,18 @@ describe("traceChain", () => {
     expect(chain.calls.length).toBe(before);
   });
 
+  it("re-checks an unknown-origin wallet after a day, since it may get funded later", async () => {
+    const chain = new FakeChain();
+    chain.setHistory(A, [{ signature: "x", tx: makeTx({ signature: "x", instructions: [systemTransfer(A, D, 5)] }) }]);
+    const store = new MemoryStore();
+    await run(chain, store);
+    funded(chain, A, B, "fa");
+    expect(shape(await run(chain, store))[0]![4]).toBe("unknown_origin");
+    const nodes: ChainNode[] = [];
+    await traceChain(A, "deployer", chain, store, cfg, NOW + 2 * 86_400, (n) => nodes.push(n));
+    expect(nodes[0]).toMatchObject({ fundedBy: B, terminal: null });
+  });
+
   it("marks a node incomplete on RPC failure and does not cache it", async () => {
     const chain = new FakeChain();
     funded(chain, A, B, "fa");

@@ -7,6 +7,8 @@ import type { Store, WalletRecord } from "../store";
 import { findSolFunding } from "../tx";
 
 const HIGH_ACTIVITY_RECHECK_SEC = 30 * 86_400;
+/** A creator wallet can exist before it ever receives SOL, so "no funding found" may change. */
+const UNKNOWN_ORIGIN_RECHECK_SEC = 86_400;
 
 /** Finds who sent this wallet its first SOL. Results are cached in the store. */
 export async function resolveWallet(
@@ -18,7 +20,10 @@ export async function resolveWallet(
 ): Promise<WalletRecord> {
   const cached = store.getWallet(address);
   if (cached) {
-    const stale = cached.terminal === "high_activity" && now - cached.fetchedAt > HIGH_ACTIVITY_RECHECK_SEC;
+    const age = now - cached.fetchedAt;
+    const stale =
+      (cached.terminal === "high_activity" && age > HIGH_ACTIVITY_RECHECK_SEC) ||
+      (cached.terminal === "unknown_origin" && age > UNKNOWN_ORIGIN_RECHECK_SEC);
     if (!stale) return cached;
   }
 

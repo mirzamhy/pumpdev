@@ -5,6 +5,7 @@ import { DevHistoryTable } from "../components/DevHistoryTable";
 import { DevStatusCard } from "../components/DevStatusCard";
 import { FunderGraph } from "../components/FunderGraph";
 import { FunderTimeline } from "../components/FunderTimeline";
+import { HoldersCard } from "../components/HoldersCard";
 import { NodeDetail } from "../components/NodeDetail";
 import { RiskCard } from "../components/RiskCard";
 import { StepProgress } from "../components/StepProgress";
@@ -63,6 +64,7 @@ export function TokenPage() {
             <p className="mt-3 text-xs text-muted">Each link is the first SOL transfer the funded wallet ever received.</p>
           </Card>
           <NodeDetail node={selectedNode} onClose={() => setSelected(null)} />
+          <HoldersCard holders={view.holders} loading={loading} />
           <DevHistoryTable tokens={view.devHistory} partial={view.devHistoryPartial} loading={loading} />
         </div>
         <div className="space-y-6">

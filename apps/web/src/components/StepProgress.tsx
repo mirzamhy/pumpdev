@@ -4,6 +4,7 @@ const STEPS: { id: StepName; label: string }[] = [
   { id: "token", label: "Token" },
   { id: "funders", label: "Funding chain" },
   { id: "devActivity", label: "Dev activity" },
+  { id: "holders", label: "Holders" },
   { id: "crosslinks", label: "Cross-links" },
   { id: "score", label: "Score" },
 ];

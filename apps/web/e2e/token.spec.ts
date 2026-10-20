@@ -20,6 +20,17 @@ test("search leads to a scored token page with the funding graph", async ({ page
   await expect(page.getByText("Dev (deployer)").first()).toBeVisible();
 });
 
+test("shows holders with a bubble map, clusters and flags", async ({ page }) => {
+  await mockApi(page);
+  await page.goto(`/token/${MINT}`);
+  await expect(page.getByRole("heading", { name: "Holders" })).toBeVisible();
+  await expect(page.getByText("214")).toBeVisible();
+  await expect(page.getByRole("img", { name: /Bubble map of the top 4 holders; 1 cluster/ })).toBeVisible();
+  await expect(page.getByText("Cluster 1: 2 wallets hold 11.0%")).toBeVisible();
+  await expect(page.getByText("bundle", { exact: true }).first()).toBeVisible();
+  await expect(page.getByText("launch block", { exact: true })).toBeVisible();
+});
+
 test("rejects an invalid address inline", async ({ page }) => {
   await mockApi(page);
   await page.goto("/");

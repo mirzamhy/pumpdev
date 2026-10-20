@@ -27,3 +27,4 @@ Measured against mainnet with public RPC and PumpPortal's free websocket.
 
 - Threshold 40% progress within 15 minutes, 20 per hour, one background trace at a time, at most 2 queued.
 - RPC cost of polling: one `getMultipleAccounts` per 100 young tokens every 20 s (about 0.1–0.3 requests per second).
+- After the `confirmed` fix, the next auto-trace (TOKEN, queued ~30 s after launch) found its creation tx, 14 launch-window buyers (1.8% bundle) and scored 25 for a dev who had already sold everything. A cold trace took about 4–5 minutes on public RPC, so real throughput is about 12 background traces per hour, below the 20/hour budget.

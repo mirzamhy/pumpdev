@@ -8,6 +8,8 @@ export function withTxCache(chain: ChainSource, store: Pick<Store, "getTx" | "pu
     getAccount: (a) => chain.getAccount(a),
     getAccounts: (a) => chain.getAccounts(a),
     getTokenHoldings: (o) => chain.getTokenHoldings(o),
+    getMintHolders: (m, p) => chain.getMintHolders(m, p),
+    getBlockTokenChanges: (s) => chain.getBlockTokenChanges(s),
     async getTransaction(signature) {
       const cached = store.getTx(signature);
       if (cached) return cached;

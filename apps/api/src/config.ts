@@ -17,7 +17,7 @@ export function loadConfig(env: Record<string, string | undefined>): ApiConfig {
     dbPath: env.DB_PATH ?? "./pumpfun.db",
     endpoints: parseEndpoints(env.RPC_URLS ?? "https://api.mainnet.solana.com", num("RPC_RPS", 8), num("RPC_METHOD_RPS", 3.5)),
     jobConcurrency: num("JOB_CONCURRENCY", 2),
-    jobTimeoutMs: num("JOB_TIMEOUT_MS", 300_000),
+    jobTimeoutMs: num("JOB_TIMEOUT_MS", 480_000),
     traceRateLimitPerMin: num("TRACE_RATE_LIMIT", 10),
     freshResultSec: num("FRESH_RESULT_SEC", 300),
   };

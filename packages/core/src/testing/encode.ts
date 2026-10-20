@@ -123,16 +123,22 @@ export interface MetadataInput {
 }
 
 /** Token-2022 mint with MetadataPointer (18) and TokenMetadata (19) extensions, as create_v2 makes. */
-export function encodeToken2022Mint(m: MetadataInput, mint: string): Uint8Array {
+export function encodeToken2022Mint(m: MetadataInput, mint: string, supply = 0n): Uint8Array {
   const value = new Writer().bytes(new Uint8Array(32)).pubkey(mint).string(m.name).string(m.symbol).string(m.uri).u32(0).build();
   return new Writer()
-    .bytes(new Uint8Array(165)) // 82-byte base mint, zero-padded to the account-type offset
+    .bytes(encodeSplMint(supply))
+    .bytes(new Uint8Array(165 - 82)) // base mint is zero-padded to the account-type offset
     .u8(1) // AccountType::Mint
     .bytes(Uint8Array.of(18, 0, 64, 0))
     .bytes(new Uint8Array(64))
     .bytes(Uint8Array.of(19, 0, value.length & 0xff, value.length >> 8))
     .bytes(value)
     .build();
+}
+
+/** 82-byte SPL mint: mint_authority COption(36) | supply u64 | decimals | initialized | freeze_authority COption(36). */
+export function encodeSplMint(supply: bigint, decimals = 6): Uint8Array {
+  return new Writer().bytes(new Uint8Array(36)).u64(supply).u8(decimals).u8(1).bytes(new Uint8Array(36)).build();
 }
 
 const padded = (s: string, len: number) => s + "\0".repeat(Math.max(0, len - new TextEncoder().encode(s).length));

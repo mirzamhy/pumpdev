@@ -35,6 +35,7 @@ export async function resolveWallet(
     fundingAmountLamports: null,
     fundedAt: null,
     terminal: null,
+    firstSeenAt: null,
     fetchedAt: now,
   };
 
@@ -43,8 +44,9 @@ export async function resolveWallet(
   if (!complete) {
     record = { ...base, terminal: "high_activity" };
   } else {
+    const firstSeenAt = sigs.length > 0 ? (sigs[sigs.length - 1]!.blockTime ?? null) : null;
     const oldestFirst = sigs.slice(-cfg.oldestTxScan).reverse().filter((s) => !s.err);
-    record = { ...base, terminal: "unknown_origin" };
+    record = { ...base, terminal: "unknown_origin", firstSeenAt };
     for (const sig of oldestFirst) {
       const tx = await chain.getTransaction(sig.signature);
       if (!tx) continue;
@@ -52,6 +54,7 @@ export async function resolveWallet(
       if (!funding) continue;
       record = {
         ...base,
+        firstSeenAt,
         funderResolved: true,
         funder: funding.from,
         fundingSignature: funding.signature,

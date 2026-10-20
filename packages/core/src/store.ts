@@ -9,7 +9,15 @@ export interface WalletRecord {
   fundingAmountLamports: string | null;
   fundedAt: number | null;
   terminal: "high_activity" | "unknown_origin" | null;
+  /** blockTime of the wallet's oldest signature; null when its history was too long to reach. */
+  firstSeenAt: number | null;
   fetchedAt: number;
+}
+
+export interface RepeatSniper {
+  wallet: string;
+  /** Other traced mints where this wallet bought within two slots of creation. */
+  count: number;
 }
 
 export interface TaintedFunder {
@@ -28,4 +36,6 @@ export interface Store {
   findCrosslinks(wallets: string[], excludeMint: string): Crosslink[];
   /** For each wallet: how many "dead, dev exited" tokens it is linked to (as funder of their dev, or as their dev). */
   findTaintedFunders(wallets: string[], excludeMint: string): TaintedFunder[];
+  /** Wallets that were early buyers in at least 3 other traced mints. */
+  findRepeatSnipers(wallets: string[], excludeMint: string): RepeatSniper[];
 }

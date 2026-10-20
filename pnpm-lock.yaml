@@ -285,6 +285,9 @@ importers:
       '@pumpfun/core':
         specifier: workspace:*
         version: link:../core
+      '@solana/kit':
+        specifier: ^8.5.0
+        version: 8.5.0(typescript@7.0.2)
 
 packages:
 

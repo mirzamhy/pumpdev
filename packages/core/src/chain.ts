@@ -56,6 +56,18 @@ export interface TokenHolding {
   amount: string;
 }
 
+export interface BlockTokenTx {
+  signature: string;
+  preTokenBalances: TokenBalance[];
+  postTokenBalances: TokenBalance[];
+}
+
+export interface MintHolderAccount {
+  owner: string;
+  /** Raw amount of one token account; an owner can have several. */
+  amount: string;
+}
+
 export interface ChainSource {
   /** Newest first. */
   getSignatures(address: string, opts: { before?: string; limit: number }): Promise<SignatureInfo[]>;
@@ -64,4 +76,8 @@ export interface ChainSource {
   getAccounts(addresses: string[]): Promise<(AccountData | null)[]>;
   /** Balances across both SPL Token and Token-2022 programs. */
   getTokenHoldings(owner: string): Promise<TokenHolding[]>;
+  /** Every token account of `mint` under `tokenProgram` (SPL Token or Token-2022). */
+  getMintHolders(mint: string, tokenProgram: string): Promise<MintHolderAccount[]>;
+  /** Token balance changes of the successful transactions in one block. */
+  getBlockTokenChanges(slot: number): Promise<BlockTokenTx[]>;
 }

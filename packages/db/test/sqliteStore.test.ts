@@ -1,5 +1,9 @@
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import Database from "better-sqlite3";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import type { ChainNode, DevToken, TraceResult } from "@pumpfun/shared";
+import type { ChainNode, DevToken, HolderAnalysis, TraceResult } from "@pumpfun/shared";
 import type { WalletRecord } from "@pumpfun/core";
 import { SqliteStore } from "../src/index";
 
@@ -74,6 +78,7 @@ const wallet = (address: string, over: Partial<WalletRecord> = {}): WalletRecord
   fundingAmountLamports: null,
   fundedAt: null,
   terminal: "unknown_origin",
+  firstSeenAt: null,
   fetchedAt: 5,
   ...over,
 });
@@ -81,8 +86,8 @@ const wallet = (address: string, over: Partial<WalletRecord> = {}): WalletRecord
 describe("SqliteStore cache", () => {
   it("round-trips wallets and upserts", () => {
     store.putWallet(wallet("W", { terminal: "high_activity" }));
-    store.putWallet(wallet("W", { funderResolved: true, funder: "F", fundingAmountLamports: "9", fundedAt: 3, fundingSignature: "s", terminal: null }));
-    expect(store.getWallet("W")).toEqual(wallet("W", { funderResolved: true, funder: "F", fundingAmountLamports: "9", fundedAt: 3, fundingSignature: "s", terminal: null }));
+    store.putWallet(wallet("W", { funderResolved: true, funder: "F", fundingAmountLamports: "9", fundedAt: 3, fundingSignature: "s", terminal: null, firstSeenAt: 2 }));
+    expect(store.getWallet("W")).toEqual(wallet("W", { funderResolved: true, funder: "F", fundingAmountLamports: "9", fundedAt: 3, fundingSignature: "s", terminal: null, firstSeenAt: 2 }));
     expect(store.getWallet("missing")).toBeNull();
   });
 
@@ -177,5 +182,42 @@ describe("SqliteStore walletView", () => {
 
   it("reports unknown wallets", () => {
     expect(store.walletView("NEW")).toEqual({ address: "NEW", known: false, chain: [], deployed: [], appearances: [] });
+  });
+});
+
+describe("SqliteStore migrations", () => {
+  it("adds first_seen_at to a database created by the first release", () => {
+    const dir = mkdtempSync(join(tmpdir(), "pumpfun-db-"));
+    const path = join(dir, "old.db");
+    const old = new Database(path);
+    old.exec(
+      "CREATE TABLE wallets (address TEXT PRIMARY KEY, funder_resolved INTEGER NOT NULL, funder TEXT, funding_signature TEXT, " +
+        "funding_amount_lamports TEXT, funded_at INTEGER, terminal TEXT, fetched_at INTEGER NOT NULL)",
+    );
+    old.prepare("INSERT INTO wallets VALUES ('W', 0, NULL, NULL, NULL, NULL, 'unknown_origin', 5)").run();
+    old.close();
+    const migrated = new SqliteStore(path);
+    expect(migrated.getWallet("W")?.firstSeenAt).toBeNull();
+    migrated.putWallet(wallet("W", { firstSeenAt: 9 }));
+    expect(migrated.getWallet("W")?.firstSeenAt).toBe(9);
+    migrated.close();
+    rmSync(dir, { recursive: true, force: true });
+  });
+});
+
+describe("SqliteStore early buyers", () => {
+  const withBuyers = (mint: string, wallets: [string, number][]): TraceResult =>
+    result(mint, `DEV-${mint}`, [], {
+      holders: { earlyBuyers: wallets.map(([w, slotOffset]) => ({ wallet: w, slotOffset, bought: "1", holding: "0" })) } as HolderAnalysis,
+    });
+
+  it("finds wallets that bought early in 3+ other traced mints", () => {
+    store.saveResult(withBuyers("M1", [["S", 0], ["X", 1]]));
+    store.saveResult(withBuyers("M2", [["S", 2], ["X", 0]]));
+    store.saveResult(withBuyers("M3", [["S", 1]]));
+    store.saveResult(withBuyers("M4", [["S", 0]]));
+    expect(store.findRepeatSnipers(["S", "X"], "M9")).toEqual([{ wallet: "S", count: 4 }]);
+    expect(store.findRepeatSnipers(["S"], "M4")).toEqual([{ wallet: "S", count: 3 }]);
+    expect(store.findRepeatSnipers([], "M9")).toEqual([]);
   });
 });

@@ -55,6 +55,7 @@ describe("resolveToken", () => {
       creatorOriginal: DEV,
       createdAt: 1000,
       createSignature: "create",
+      createSlot: 1,
       complete: false,
       isMayhemMode: true,
       devInitialBuy: "777",

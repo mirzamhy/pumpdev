@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { METAPLEX_METADATA_PROGRAM_ID, TOKEN_2022_PROGRAM_ID, TOKEN_PROGRAM_ID } from "../src/pump/constants";
-import { decodeMetaplexMetadata, decodeToken2022Metadata, fetchTokenMetadata, metaplexMetadataPda } from "../src/pump/metadata";
-import { FakeChain, addr, encodeMetaplexMetadata, encodeToken2022Mint } from "../src/testing";
+import { decodeMetaplexMetadata, decodeMintSupply, decodeToken2022Metadata, fetchTokenMetadata, metaplexMetadataPda } from "../src/pump/metadata";
+import { FakeChain, addr, encodeMetaplexMetadata, encodeSplMint, encodeToken2022Mint } from "../src/testing";
 
 const MINT = addr(20);
 const meta = { name: "Befreit die Katze", symbol: "Katze", uri: "https://meta.example/k.json" };
@@ -47,5 +47,16 @@ describe("fetchTokenMetadata", () => {
 
   it("returns null when nothing is found", async () => {
     expect(await fetchTokenMetadata(new FakeChain(), MINT)).toBeNull();
+  });
+});
+
+describe("decodeMintSupply", () => {
+  it("reads supply from SPL and Token-2022 mints", () => {
+    expect(decodeMintSupply(encodeSplMint(1_000_000_000_000_000n))).toBe(1_000_000_000_000_000n);
+    expect(decodeMintSupply(encodeToken2022Mint(meta, MINT, 42n))).toBe(42n);
+  });
+
+  it("still finds Token-2022 metadata when supply is set", () => {
+    expect(decodeToken2022Metadata(encodeToken2022Mint(meta, MINT, 42n))).toEqual(meta);
   });
 });

@@ -1,4 +1,4 @@
-import type { AccountData, ChainSource, ParsedTx, SignatureInfo, TokenHolding } from "../chain";
+import type { AccountData, BlockTokenTx, ChainSource, MintHolderAccount, ParsedTx, SignatureInfo, TokenHolding } from "../chain";
 
 export interface HistoryEntry {
   signature: string;
@@ -13,6 +13,9 @@ export class FakeChain implements ChainSource {
   readonly txs = new Map<string, ParsedTx>();
   readonly accounts = new Map<string, AccountData>();
   readonly holdings = new Map<string, TokenHolding[]>();
+  /** Keyed by mint. */
+  readonly mintHolders = new Map<string, MintHolderAccount[]>();
+  readonly blocks = new Map<number, BlockTokenTx[]>();
   readonly failTx = new Set<string>();
   readonly calls: string[] = [];
 
@@ -59,5 +62,15 @@ export class FakeChain implements ChainSource {
   async getTokenHoldings(owner: string): Promise<TokenHolding[]> {
     this.calls.push(`holdings:${owner}`);
     return this.holdings.get(owner) ?? [];
+  }
+
+  async getMintHolders(mint: string, _tokenProgram: string): Promise<MintHolderAccount[]> {
+    this.calls.push(`holders:${mint}`);
+    return this.mintHolders.get(mint) ?? [];
+  }
+
+  async getBlockTokenChanges(slot: number): Promise<BlockTokenTx[]> {
+    this.calls.push(`block:${slot}`);
+    return this.blocks.get(slot) ?? [];
   }
 }

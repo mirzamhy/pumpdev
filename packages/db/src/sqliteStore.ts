@@ -1,7 +1,7 @@
 import Database from "better-sqlite3";
-import type { ParsedTx, Store, TaintedFunder, WalletRecord } from "@pumpfun/core";
+import type { ParsedTx, RepeatSniper, Store, TaintedFunder, WalletRecord } from "@pumpfun/core";
 import type { ChainNode, Crosslink, JobState, RecentTrace, TraceEvent, TraceResult, WalletView } from "@pumpfun/shared";
-import { SCHEMA } from "./schema";
+import { COLUMN_MIGRATIONS, SCHEMA } from "./schema";
 
 export interface JobRow {
   id: string;
@@ -18,6 +18,7 @@ interface WalletRow {
   funding_amount_lamports: string | null;
   funded_at: number | null;
   terminal: WalletRecord["terminal"];
+  first_seen_at: number | null;
   fetched_at: number;
 }
 
@@ -29,6 +30,7 @@ const rowToWallet = (r: WalletRow): WalletRecord => ({
   fundingAmountLamports: r.funding_amount_lamports,
   fundedAt: r.funded_at,
   terminal: r.terminal,
+  firstSeenAt: r.first_seen_at,
   fetchedAt: r.fetched_at,
 });
 
@@ -41,7 +43,17 @@ export class SqliteStore implements Store {
   constructor(path: string) {
     this.db = new Database(path);
     this.db.pragma("journal_mode = WAL");
+    this.migrateColumns();
     this.db.exec(SCHEMA);
+  }
+
+  private migrateColumns(): void {
+    for (const m of COLUMN_MIGRATIONS) {
+      const exists = this.db.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?").get(m.table);
+      if (!exists) continue;
+      const columns = this.db.prepare(`PRAGMA table_info(${m.table})`).all() as { name: string }[];
+      if (!columns.some((c) => c.name === m.column)) this.db.exec(m.ddl);
+    }
   }
 
   close(): void {
@@ -58,12 +70,13 @@ export class SqliteStore implements Store {
   putWallet(w: WalletRecord): void {
     this.db
       .prepare(
-        `INSERT INTO wallets (address, funder_resolved, funder, funding_signature, funding_amount_lamports, funded_at, terminal, fetched_at)
-         VALUES (@address, @funderResolved, @funder, @fundingSignature, @fundingAmountLamports, @fundedAt, @terminal, @fetchedAt)
+        `INSERT INTO wallets (address, funder_resolved, funder, funding_signature, funding_amount_lamports, funded_at, terminal, first_seen_at, fetched_at)
+         VALUES (@address, @funderResolved, @funder, @fundingSignature, @fundingAmountLamports, @fundedAt, @terminal, @firstSeenAt, @fetchedAt)
          ON CONFLICT(address) DO UPDATE SET
            funder_resolved = excluded.funder_resolved, funder = excluded.funder,
            funding_signature = excluded.funding_signature, funding_amount_lamports = excluded.funding_amount_lamports,
-           funded_at = excluded.funded_at, terminal = excluded.terminal, fetched_at = excluded.fetched_at`,
+           funded_at = excluded.funded_at, terminal = excluded.terminal, first_seen_at = excluded.first_seen_at,
+           fetched_at = excluded.fetched_at`,
       )
       .run({
         address: w.address,
@@ -73,6 +86,7 @@ export class SqliteStore implements Store {
         fundingAmountLamports: w.fundingAmountLamports,
         fundedAt: w.fundedAt,
         terminal: w.terminal,
+        firstSeenAt: w.firstSeenAt,
         fetchedAt: w.fetchedAt,
       });
   }
@@ -128,6 +142,17 @@ export class SqliteStore implements Store {
     const totals = new Map<string, number>();
     for (const row of [...viaTraces, ...asDeployer]) totals.set(row.wallet, (totals.get(row.wallet) ?? 0) + row.deadCount);
     return [...totals].map(([wallet, deadCount]) => ({ wallet, deadCount }));
+  }
+
+  findRepeatSnipers(wallets: string[], excludeMint: string): RepeatSniper[] {
+    if (wallets.length === 0) return [];
+    return this.db
+      .prepare(
+        `SELECT wallet, COUNT(DISTINCT mint) AS count FROM early_buyers
+         WHERE wallet IN (${placeholders(wallets.length)}) AND mint != ? AND slot_offset <= 2
+         GROUP BY wallet HAVING COUNT(DISTINCT mint) >= 3`,
+      )
+      .all(...wallets, excludeMint) as RepeatSniper[];
   }
 
   // ---- Jobs and events ----
@@ -195,6 +220,12 @@ export class SqliteStore implements Store {
         addWallet.run(token.mint, n.address, n.role, n.depth);
       }
       for (const t of res.devStatus?.transfers ?? []) addWallet.run(token.mint, t.to, "insider", 0);
+
+      if (res.holders?.earlyBuyers) {
+        this.db.prepare("DELETE FROM early_buyers WHERE mint = ?").run(token.mint);
+        const addBuyer = this.db.prepare("INSERT OR IGNORE INTO early_buyers (mint, wallet, slot_offset) VALUES (?, ?, ?)");
+        for (const b of res.holders.earlyBuyers) addBuyer.run(token.mint, b.wallet, b.slotOffset);
+      }
     });
     save(r);
   }

@@ -10,6 +10,7 @@ export interface TokenMetadata {
 }
 
 const ACCOUNT_TYPE_OFFSET = 165;
+const MINT_SUPPLY_OFFSET = 36; // after mint_authority: COption<Pubkey> (4 + 32)
 const ACCOUNT_TYPE_MINT = 1;
 const EXT_TOKEN_METADATA = 19;
 
@@ -18,6 +19,12 @@ const clean = (s: string) => s.replace(/\0/g, "").trim();
 
 function readNameSymbolUri(r: Reader): TokenMetadata {
   return { name: clean(r.string()), symbol: clean(r.string()), uri: clean(r.string()) };
+}
+
+/** Total supply (raw units) from an SPL Token or Token-2022 mint account. */
+export function decodeMintSupply(data: Uint8Array): bigint {
+  if (data.length < MINT_SUPPLY_OFFSET + 8) throw new RangeError("mint: account too short");
+  return new DataView(data.buffer, data.byteOffset, data.length).getBigUint64(MINT_SUPPLY_OFFSET, true);
 }
 
 /** Reads the TokenMetadata extension (type 19) from a Token-2022 mint account. */

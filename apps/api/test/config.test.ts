@@ -8,7 +8,7 @@ describe("loadConfig", () => {
       dbPath: "./pumpfun.db",
       endpoints: [{ url: "https://api.mainnet.solana.com", rps: 8, methodRps: 3.5 }],
       jobConcurrency: 2,
-      jobTimeoutMs: 300_000,
+      jobTimeoutMs: 480_000,
       traceRateLimitPerMin: 10,
       freshResultSec: 300,
     });

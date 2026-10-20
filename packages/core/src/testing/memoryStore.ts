@@ -1,6 +1,6 @@
 import type { Crosslink } from "@pumpfun/shared";
 import type { ParsedTx } from "../chain";
-import type { Store, TaintedFunder, WalletRecord } from "../store";
+import type { RepeatSniper, Store, TaintedFunder, WalletRecord } from "../store";
 
 export class MemoryStore implements Store {
   readonly wallets = new Map<string, WalletRecord>();
@@ -8,6 +8,7 @@ export class MemoryStore implements Store {
   readonly createSignatures = new Map<string, string>();
   crosslinks: Crosslink[] = [];
   tainted: TaintedFunder[] = [];
+  repeatSnipers: RepeatSniper[] = [];
 
   findCreateSignature(mint: string): string | null {
     return this.createSignatures.get(mint) ?? null;
@@ -27,6 +28,9 @@ export class MemoryStore implements Store {
   }
   findCrosslinks(wallets: string[], excludeMint: string): Crosslink[] {
     return this.crosslinks.filter((c) => wallets.includes(c.wallet) && c.otherMint !== excludeMint);
+  }
+  findRepeatSnipers(wallets: string[]): RepeatSniper[] {
+    return this.repeatSnipers.filter((r) => wallets.includes(r.wallet));
   }
   findTaintedFunders(wallets: string[]): TaintedFunder[] {
     return this.tainted.filter((t) => wallets.includes(t.wallet));

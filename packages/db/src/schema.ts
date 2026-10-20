@@ -7,6 +7,7 @@ CREATE TABLE IF NOT EXISTS wallets (
   funding_amount_lamports TEXT,
   funded_at INTEGER,
   terminal TEXT,
+  first_seen_at INTEGER,
   fetched_at INTEGER NOT NULL
 );
 CREATE TABLE IF NOT EXISTS tx_cache (
@@ -43,6 +44,13 @@ CREATE TABLE IF NOT EXISTS trace_results (
   finished_at INTEGER NOT NULL
 );
 CREATE INDEX IF NOT EXISTS trace_results_finished ON trace_results(finished_at);
+CREATE TABLE IF NOT EXISTS early_buyers (
+  mint TEXT NOT NULL,
+  wallet TEXT NOT NULL,
+  slot_offset INTEGER NOT NULL,
+  PRIMARY KEY (mint, wallet)
+);
+CREATE INDEX IF NOT EXISTS early_buyers_wallet ON early_buyers(wallet);
 CREATE TABLE IF NOT EXISTS trace_jobs (
   id TEXT PRIMARY KEY,
   mint TEXT NOT NULL,
@@ -58,3 +66,8 @@ CREATE TABLE IF NOT EXISTS trace_events (
   PRIMARY KEY (job_id, seq)
 );
 `;
+
+/** Columns added after the first release; applied to databases created by older versions. */
+export const COLUMN_MIGRATIONS: { table: string; column: string; ddl: string }[] = [
+  { table: "wallets", column: "first_seen_at", ddl: "ALTER TABLE wallets ADD COLUMN first_seen_at INTEGER" },
+];

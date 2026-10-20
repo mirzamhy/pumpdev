@@ -36,13 +36,16 @@ describe("traceChain", () => {
     funded(chain, A, B, "fa");
     funded(chain, B, C, "fb", true);
     busy(chain, C);
-    const nodes = await run(chain);
+    const store = new MemoryStore();
+    const nodes = await run(chain, store);
     expect(shape(nodes)).toEqual([
       [A, 0, "deployer", B, null],
       [B, 1, "funder", C, null],
       [C, 2, "funder", null, "high_activity"],
     ]);
     expect(nodes[0]).toMatchObject({ chainRoot: A, fundingAmountLamports: "1000000000", fundingSignature: "fa", fundedAt: 100 });
+    expect(store.getWallet(A)?.firstSeenAt).toBe(100);
+    expect(store.getWallet(C)?.firstSeenAt).toBeNull();
   });
 
   it("stops with unknown_origin when no SOL transfer funded the wallet", async () => {

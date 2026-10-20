@@ -37,7 +37,7 @@ export class RpcChainSource implements ChainSource {
   getTransaction(signature: string): Promise<ParsedTx | null> {
     return this.pool.call<ParsedTx | null>("getTransaction", [
       signature,
-      { encoding: "jsonParsed", maxSupportedTransactionVersion: 0, commitment: "finalized" },
+      { encoding: "jsonParsed", maxSupportedTransactionVersion: 1, commitment: "finalized" },
     ]);
   }
 

@@ -24,10 +24,10 @@ describe("RpcChainSource", () => {
     expect(seen[0]!.params).toEqual(["W", { limit: 10, before: "s0", commitment: "finalized" }]);
   });
 
-  it("requests jsonParsed transactions with v0 support", async () => {
+  it("requests jsonParsed transactions up to version 1", async () => {
     const { chain, seen } = source({ getTransaction: () => null });
     expect(await chain.getTransaction("sig")).toBeNull();
-    expect(seen[0]!.params).toEqual(["sig", { encoding: "jsonParsed", maxSupportedTransactionVersion: 0, commitment: "finalized" }]);
+    expect(seen[0]!.params).toEqual(["sig", { encoding: "jsonParsed", maxSupportedTransactionVersion: 1, commitment: "finalized" }]);
   });
 
   it("decodes base64 account data", async () => {

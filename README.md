@@ -1,6 +1,6 @@
 # pumpfun.dev
 
-Paste a pump.fun token address and see who funded the dev: the dev wallet's first SOL, traced back up to 5 wallets, the dev's other launches, whether the dev sold or moved tokens, links to other traced tokens, and a heuristic risk score.
+Paste a pump.fun token address and see who funded the dev: the dev wallet's first SOL, traced back up to 5 wallets, the dev's other launches, whether the dev sold or moved tokens, links to other traced tokens, and a heuristic risk score. For tokens still on the bonding curve it also maps the holders: top 20 as a bubble map, wallets that look like one owner, launch-block buyers (bundles and snipers), fresh wallets, repeat snipers and the insider share of supply.
 
 Not financial advice. All data comes from public Solana RPC.
 
@@ -43,4 +43,4 @@ Update: `git pull && docker compose up -d --build`. The SQLite database lives in
 
 ## Capacity
 
-Public RPC allows about 4 transaction lookups per second per IP. A trace with nothing cached takes roughly 1–3 minutes (busy tokens take longest, because their bonding-curve history is long); cached wallets and known creation transactions make repeat traces fast. To go faster, register free-tier keys with RPC providers and append them to `RPC_URLS` (format `url|rps|perMethodRps`).
+Public RPC allows about 4 transaction lookups per second per IP. A trace with nothing cached takes roughly 2–5 minutes (holder analysis adds 1–2 minutes) (busy tokens take longest, because their bonding-curve history is long); cached wallets and known creation transactions make repeat traces fast. To go faster, register free-tier keys with RPC providers and append them to `RPC_URLS` (format `url|rps|perMethodRps`).

@@ -158,7 +158,11 @@ export function encodeMetaplexMetadata(m: MetadataInput, mint: string): Uint8Arr
 
 export interface BondingCurveInput {
   complete: boolean;
+  virtualTokenReserves?: bigint;
+  virtualQuoteReserves?: bigint;
+  realTokenReserves?: bigint;
   realQuoteReserves?: bigint;
+  tokenTotalSupply?: bigint;
   /** Omit to produce a legacy 49-byte account without creator. */
   creator?: string;
   isMayhemMode?: boolean;
@@ -168,11 +172,11 @@ export interface BondingCurveInput {
 export function encodeBondingCurve(c: BondingCurveInput): Uint8Array {
   const w = new Writer()
     .bytes(new Uint8Array(8))
-    .u64(0n)
-    .u64(0n)
-    .u64(0n)
+    .u64(c.virtualTokenReserves ?? 0n)
+    .u64(c.virtualQuoteReserves ?? 0n)
+    .u64(c.realTokenReserves ?? 0n)
     .u64(c.realQuoteReserves ?? 0n)
-    .u64(0n)
+    .u64(c.tokenTotalSupply ?? 0n)
     .bool(c.complete);
   if (c.creator !== undefined) {
     w.pubkey(c.creator)

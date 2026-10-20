@@ -1,6 +1,7 @@
 import Database from "better-sqlite3";
 import type { ParsedTx, RepeatSniper, Store, TaintedFunder, WalletRecord } from "@pumpfun/core";
-import type { ChainNode, Crosslink, JobState, RecentTrace, TraceEvent, TraceResult, WalletView } from "@pumpfun/shared";
+import type { ChainNode, Crosslink, FeedStats, FeedTab, JobState, RecentTrace, TraceEvent, TraceResult, WalletView } from "@pumpfun/shared";
+import { rawToFeedRow, symbolKey, type FeedCurveUpdate, type FeedRow, type FeedRowRaw, type FeedTokenInput } from "./feed";
 import { COLUMN_MIGRATIONS, SCHEMA } from "./schema";
 
 export interface JobRow {
@@ -36,6 +37,24 @@ const rowToWallet = (r: WalletRow): WalletRecord => ({
 
 const placeholders = (n: number) => Array.from({ length: n }, () => "?").join(",");
 const MAX_WALLET_CHAIN = 6;
+
+const HOUR = 3600;
+const DAY = 86_400;
+/** Tokens younger than this are polled every tick. */
+const YOUNG_SEC = 600;
+/** Older tokens with traction keep being polled, at most every HOT_POLL_SEC, until HOT_MAX_AGE_SEC. */
+const HOT_MIN_PROGRESS = 10;
+const HOT_POLL_SEC = 120;
+const HOT_MAX_AGE_SEC = 6 * HOUR;
+const MAX_POLL = 1000;
+const MAX_CANDIDATES = 50;
+const FRESH_TRACE_SEC = HOUR;
+
+const FEED_ORDER: Record<FeedTab, { where: string; order: string }> = {
+  new: { where: "1 = 1", order: "f.created_at DESC" },
+  hot: { where: "f.migrated_at IS NULL AND f.complete = 0 AND f.created_at > @hotSince", order: "f.progress_pct DESC, f.created_at DESC" },
+  traced: { where: "tr.mint IS NOT NULL", order: "tr.finished_at DESC" },
+};
 
 export class SqliteStore implements Store {
   readonly db: Database.Database;
@@ -101,10 +120,12 @@ export class SqliteStore implements Store {
   }
 
   findCreateSignature(mint: string): string | null {
-    const row = this.db
+    const traced = this.db
       .prepare("SELECT json_extract(json, '$.token.createSignature') AS sig FROM trace_results WHERE mint = ?")
       .get(mint) as { sig: string | null } | undefined;
-    return row?.sig ?? null;
+    if (traced?.sig) return traced.sig;
+    const feed = this.db.prepare("SELECT create_signature AS sig FROM feed_tokens WHERE mint = ?").get(mint) as { sig: string | null } | undefined;
+    return feed?.sig ?? null;
   }
 
   findCrosslinks(wallets: string[], excludeMint: string): Crosslink[] {
@@ -243,6 +264,100 @@ export class SqliteStore implements Store {
       const r = JSON.parse(row.json) as TraceResult;
       return { mint: r.token.mint, name: r.token.name, symbol: r.token.symbol, score: r.score.score, level: r.score.level, finishedAt: r.finishedAt };
     });
+  }
+
+  // ---- Live feed ----
+
+  insertFeedToken(t: FeedTokenInput): boolean {
+    const result = this.db
+      .prepare(
+        `INSERT OR IGNORE INTO feed_tokens (mint, name, symbol, symbol_key, uri, creator, bonding_curve, create_signature, created_at,
+           initial_buy_sol, mayhem, market_cap_sol, progress_pct, real_sol)
+         VALUES (@mint, @name, @symbol, @symbolKey, @uri, @creator, @bondingCurve, @createSignature, @createdAt,
+           @initialBuySol, @mayhem, @marketCapSol, @progressPct, @realSol)`,
+      )
+      .run({ ...t, isMayhemMode: null, symbolKey: symbolKey(t.symbol), mayhem: t.isMayhemMode ? 1 : 0 });
+    return result.changes === 1;
+  }
+
+  updateFeedCurves(rows: FeedCurveUpdate[], polledAt: number): void {
+    const update = this.db.prepare(
+      `UPDATE feed_tokens SET market_cap_sol = @marketCapSol, progress_pct = @progressPct, real_sol = @realSol,
+         complete = MAX(complete, @complete), polled_at = @polledAt WHERE mint = @mint`,
+    );
+    this.db.transaction(() => {
+      for (const r of rows) update.run({ ...r, complete: r.complete ? 1 : 0, polledAt });
+    })();
+  }
+
+  markMigrated(mint: string, at: number): void {
+    this.db.prepare("UPDATE feed_tokens SET complete = 1, progress_pct = 100, migrated_at = COALESCE(migrated_at, ?) WHERE mint = ?").run(at, mint);
+  }
+
+  markAutoTraced(mint: string, at: number): void {
+    this.db.prepare("UPDATE feed_tokens SET auto_traced_at = ? WHERE mint = ?").run(at, mint);
+  }
+
+  feedTokensToPoll(now: number): { mint: string; bondingCurve: string }[] {
+    return this.db
+      .prepare(
+        `SELECT mint, bonding_curve AS bondingCurve FROM feed_tokens
+         WHERE complete = 0 AND (
+           created_at > @young
+           OR (progress_pct >= @minProgress AND created_at > @hotSince AND (polled_at IS NULL OR polled_at <= @due))
+         )
+         ORDER BY created_at DESC LIMIT @limit`,
+      )
+      .all({ young: now - YOUNG_SEC, minProgress: HOT_MIN_PROGRESS, hotSince: now - HOT_MAX_AGE_SEC, due: now - HOT_POLL_SEC, limit: MAX_POLL }) as {
+      mint: string;
+      bondingCurve: string;
+    }[];
+  }
+
+  autoTraceCandidates(now: number, minProgress: number, windowSec: number): string[] {
+    const rows = this.db
+      .prepare(
+        `SELECT f.mint FROM feed_tokens f
+         WHERE f.auto_traced_at IS NULL AND f.created_at > @since AND f.progress_pct >= @minProgress
+           AND NOT EXISTS (SELECT 1 FROM trace_results tr WHERE tr.mint = f.mint AND tr.finished_at > @freshSince)
+         ORDER BY f.progress_pct DESC LIMIT @limit`,
+      )
+      .all({ since: now - windowSec, minProgress, freshSince: now - FRESH_TRACE_SEC, limit: MAX_CANDIDATES }) as { mint: string }[];
+    return rows.map((r) => r.mint);
+  }
+
+  feed(opts: { tab: FeedTab; hideHigh: boolean; limit: number; now: number }): FeedRow[] {
+    const { where, order } = FEED_ORDER[opts.tab];
+    const hideHigh = opts.hideHigh ? "AND (tr.mint IS NULL OR json_extract(tr.json, '$.score.level') != 'high')" : "";
+    const rows = this.db
+      .prepare(
+        `SELECT f.mint, f.name, f.symbol, f.creator, f.created_at, f.market_cap_sol, f.progress_pct, f.real_sol, f.initial_buy_sol,
+           f.complete, f.migrated_at, f.mayhem, f.auto_traced_at,
+           CASE WHEN f.symbol_key IS NULL THEN 0 ELSE (
+             SELECT COUNT(*) FROM feed_tokens o WHERE o.symbol_key = f.symbol_key AND o.mint != f.mint AND o.created_at > @daySince
+           ) END AS copycat_count,
+           tr.score AS score, json_extract(tr.json, '$.score.level') AS level, tr.finished_at AS traced_at
+         FROM feed_tokens f LEFT JOIN trace_results tr ON tr.mint = f.mint
+         WHERE ${where} ${hideHigh}
+         ORDER BY ${order} LIMIT @limit`,
+      )
+      .all({ daySince: opts.now - DAY, hotSince: opts.now - HOT_MAX_AGE_SEC, limit: opts.limit }) as FeedRowRaw[];
+    return rows.map(rawToFeedRow);
+  }
+
+  feedStats(now: number): Omit<FeedStats, "connected"> {
+    const seen = this.db.prepare("SELECT COUNT(*) AS n FROM feed_tokens WHERE created_at > ?").get(now - HOUR) as { n: number };
+    const traced = this.db
+      .prepare(
+        `SELECT COUNT(*) AS n, COALESCE(SUM(json_extract(tr.json, '$.score.level') = 'high'), 0) AS high
+         FROM trace_results tr JOIN feed_tokens f ON f.mint = tr.mint WHERE tr.finished_at > ?`,
+      )
+      .get(now - HOUR) as { n: number; high: number };
+    return { seenLastHour: seen.n, tracedLastHour: traced.n, highRiskShare: traced.n === 0 ? null : traced.high / traced.n };
+  }
+
+  pruneFeed(before: number): number {
+    return this.db.prepare("DELETE FROM feed_tokens WHERE created_at < ?").run(before).changes;
   }
 
   walletView(address: string): WalletView {

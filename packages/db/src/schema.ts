@@ -65,6 +65,29 @@ CREATE TABLE IF NOT EXISTS trace_events (
   json TEXT NOT NULL,
   PRIMARY KEY (job_id, seq)
 );
+CREATE TABLE IF NOT EXISTS feed_tokens (
+  mint TEXT PRIMARY KEY,
+  name TEXT,
+  symbol TEXT,
+  symbol_key TEXT,
+  uri TEXT,
+  creator TEXT NOT NULL,
+  bonding_curve TEXT NOT NULL,
+  create_signature TEXT,
+  created_at INTEGER NOT NULL,
+  initial_buy_sol REAL,
+  mayhem INTEGER NOT NULL DEFAULT 0,
+  market_cap_sol REAL,
+  progress_pct REAL NOT NULL DEFAULT 0,
+  real_sol REAL NOT NULL DEFAULT 0,
+  complete INTEGER NOT NULL DEFAULT 0,
+  migrated_at INTEGER,
+  auto_traced_at INTEGER,
+  polled_at INTEGER
+);
+CREATE INDEX IF NOT EXISTS feed_tokens_created ON feed_tokens(created_at);
+CREATE INDEX IF NOT EXISTS feed_tokens_symbol ON feed_tokens(symbol_key, created_at);
+CREATE INDEX IF NOT EXISTS feed_tokens_progress ON feed_tokens(progress_pct);
 `;
 
 /** Columns added after the first release; applied to databases created by older versions. */

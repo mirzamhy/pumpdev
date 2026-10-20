@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { TraceRequest, formatPct, formatSol, formatTokenAmount, shortAddress } from "../src/index";
+import { FeedQuery, TraceRequest, formatPct, formatSol, formatTokenAmount, shortAddress } from "../src/index";
 
 const MINT = "9BB6NFEcjBCtnNLFko2FqVQBq8HHM13kCyYcdQbgpump";
 
@@ -36,5 +36,18 @@ describe("formatting", () => {
   it("shortens addresses", () => {
     expect(shortAddress(MINT)).toBe("9BB6…pump");
     expect(shortAddress("short")).toBe("short");
+  });
+});
+
+describe("FeedQuery", () => {
+  it("has defaults", () => {
+    expect(FeedQuery.parse({})).toEqual({ tab: "new", hideHigh: false, limit: 100 });
+  });
+  it("reads query strings", () => {
+    expect(FeedQuery.parse({ tab: "hot", hideHigh: "1", limit: "20" })).toEqual({ tab: "hot", hideHigh: true, limit: 20 });
+  });
+  it("rejects out-of-range limits and unknown tabs", () => {
+    expect(FeedQuery.safeParse({ limit: "500" }).success).toBe(false);
+    expect(FeedQuery.safeParse({ tab: "old" }).success).toBe(false);
   });
 });

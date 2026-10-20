@@ -189,6 +189,50 @@ export interface WalletView {
   appearances: { mint: string; symbol: string | null; role: Crosslink["role"] }[];
 }
 
+export type FeedTab = "new" | "hot" | "traced";
+export type FeedTraceState = "none" | "queued" | "running" | "done";
+
+export interface FeedItem {
+  mint: string;
+  name: string | null;
+  symbol: string | null;
+  creator: string;
+  createdAt: number;
+  marketCapSol: number | null;
+  progressPct: number;
+  realSol: number;
+  initialBuySol: number | null;
+  complete: boolean;
+  migratedAt: number | null;
+  isMayhemMode: boolean;
+  /** Other tokens with the same ticker in the last 24 hours. */
+  copycatCount: number;
+  autoTraced: boolean;
+  trace: { state: FeedTraceState; score: number | null; level: RiskLevel | null };
+}
+
+export interface FeedStats {
+  seenLastHour: number;
+  tracedLastHour: number;
+  /** Share of tokens traced in the last hour that scored high, 0..1; null when none were traced. */
+  highRiskShare: number | null;
+  connected: boolean;
+}
+
+export interface FeedResponse {
+  items: FeedItem[];
+  stats: FeedStats;
+}
+
+export const FeedQuery = z.object({
+  tab: z.enum(["new", "hot", "traced"]).default("new"),
+  hideHigh: z
+    .enum(["0", "1"])
+    .default("0")
+    .transform((v) => v === "1"),
+  limit: z.coerce.number().int().min(1).max(200).default(100),
+});
+
 const compact = new Intl.NumberFormat("en-US", { notation: "compact", maximumFractionDigits: 1 });
 const solFmt = new Intl.NumberFormat("en-US", { maximumFractionDigits: 3 });
 

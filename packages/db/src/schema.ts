@@ -1,0 +1,60 @@
+export const SCHEMA = `
+CREATE TABLE IF NOT EXISTS wallets (
+  address TEXT PRIMARY KEY,
+  funder_resolved INTEGER NOT NULL,
+  funder TEXT,
+  funding_signature TEXT,
+  funding_amount_lamports TEXT,
+  funded_at INTEGER,
+  terminal TEXT,
+  fetched_at INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS tx_cache (
+  signature TEXT PRIMARY KEY,
+  json TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS tokens (
+  mint TEXT PRIMARY KEY,
+  name TEXT,
+  symbol TEXT,
+  deployer TEXT NOT NULL,
+  created_at INTEGER
+);
+CREATE INDEX IF NOT EXISTS tokens_deployer ON tokens(deployer);
+CREATE TABLE IF NOT EXISTS dev_tokens (
+  deployer TEXT NOT NULL,
+  mint TEXT NOT NULL,
+  status TEXT NOT NULL,
+  checked_at INTEGER NOT NULL,
+  PRIMARY KEY (deployer, mint)
+);
+CREATE TABLE IF NOT EXISTS trace_wallets (
+  mint TEXT NOT NULL,
+  wallet TEXT NOT NULL,
+  role TEXT NOT NULL,
+  depth INTEGER NOT NULL,
+  PRIMARY KEY (mint, wallet, role)
+);
+CREATE INDEX IF NOT EXISTS trace_wallets_wallet ON trace_wallets(wallet);
+CREATE TABLE IF NOT EXISTS trace_results (
+  mint TEXT PRIMARY KEY,
+  json TEXT NOT NULL,
+  score INTEGER NOT NULL,
+  finished_at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS trace_results_finished ON trace_results(finished_at);
+CREATE TABLE IF NOT EXISTS trace_jobs (
+  id TEXT PRIMARY KEY,
+  mint TEXT NOT NULL,
+  state TEXT NOT NULL,
+  partial INTEGER NOT NULL DEFAULT 0,
+  started_at INTEGER NOT NULL,
+  finished_at INTEGER
+);
+CREATE TABLE IF NOT EXISTS trace_events (
+  job_id TEXT NOT NULL,
+  seq INTEGER NOT NULL,
+  json TEXT NOT NULL,
+  PRIMARY KEY (job_id, seq)
+);
+`;

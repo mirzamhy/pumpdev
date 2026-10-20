@@ -1,0 +1,22 @@
+{
+  "name": "@pumpfun/api",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "start": "tsx src/server.ts",
+    "smoke": "tsx scripts/smoke.ts",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@fastify/rate-limit": "^11.2.1",
+    "@pumpfun/core": "workspace:*",
+    "@pumpfun/db": "workspace:*",
+    "@pumpfun/shared": "workspace:*",
+    "@pumpfun/solana": "workspace:*",
+    "fastify": "^5.12.7",
+    "tsx": "^4.23.15"
+  }
+}

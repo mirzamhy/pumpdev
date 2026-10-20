@@ -41,9 +41,11 @@ describe("JobManager priorities", () => {
     await flush();
     expect(jobs.stateOf(D)).toBe("running");
     expect(started).toEqual([A, D]);
+    expect(jobs.autoBacklog()).toBe(3);
     release();
     await jobs.whenIdle();
     expect(jobs.stateOf(A)).toBeNull();
+    expect(jobs.autoBacklog()).toBe(0);
   });
 
   it("serves queued user traces before queued background traces", async () => {

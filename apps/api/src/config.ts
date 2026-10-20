@@ -1,4 +1,5 @@
 import { parseEndpoints, type EndpointConfig } from "@pumpfun/solana";
+import type { FeedConfig } from "./feed/feedService";
 
 export interface ApiConfig {
   port: number;
@@ -8,6 +9,9 @@ export interface ApiConfig {
   jobTimeoutMs: number;
   traceRateLimitPerMin: number;
   freshResultSec: number;
+  feedEnabled: boolean;
+  pumpPortalUrl: string;
+  feed: FeedConfig;
 }
 
 export function loadConfig(env: Record<string, string | undefined>): ApiConfig {
@@ -20,5 +24,14 @@ export function loadConfig(env: Record<string, string | undefined>): ApiConfig {
     jobTimeoutMs: num("JOB_TIMEOUT_MS", 480_000),
     traceRateLimitPerMin: num("TRACE_RATE_LIMIT", 10),
     freshResultSec: num("FRESH_RESULT_SEC", 300),
+    feedEnabled: env.FEED_ENABLED !== "false",
+    pumpPortalUrl: env.PUMPPORTAL_URL ?? "wss://pumpportal.fun/api/data",
+    feed: {
+      pollSec: num("FEED_POLL_SEC", 20),
+      autoTraceMinProgress: num("AUTO_TRACE_MIN_PROGRESS", 40),
+      autoTraceWindowSec: num("AUTO_TRACE_WINDOW_SEC", 900),
+      autoTracePerHour: num("AUTO_TRACE_PER_HOUR", 20),
+      retentionHours: num("FEED_RETENTION_HOURS", 24),
+    },
   };
 }

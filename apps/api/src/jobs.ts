@@ -63,6 +63,11 @@ export class JobManager {
     return job.id;
   }
 
+  /** Background traces queued or running. */
+  autoBacklog(): number {
+    return this.autoQueue.length + this.autoRunning;
+  }
+
   stateOf(mint: string): "queued" | "running" | null {
     const job = this.byMint.get(mint);
     if (!job) return null;

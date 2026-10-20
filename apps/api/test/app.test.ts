@@ -105,4 +105,37 @@ describe("API", () => {
     expect((await app.inject({ method: "GET", url: "/api/trace/nope/stream" })).statusCode).toBe(404);
     expect((await app.inject({ method: "GET", url: `/api/token/${addr(5)}` })).statusCode).toBe(404);
   });
+
+  it("serves the live feed with trace state", async () => {
+    store.insertFeedToken({
+      mint: s.mint,
+      name: "Feed Coin",
+      symbol: "FEED",
+      uri: null,
+      creator: s.deployer,
+      bondingCurve: addr(77),
+      createSignature: null,
+      createdAt: s.now,
+      initialBuySol: 1,
+      isMayhemMode: false,
+      marketCapSol: 30,
+      progressPct: 5,
+      realSol: 0,
+    });
+    const before = (await app.inject({ method: "GET", url: "/api/feed" })).json();
+    expect(before.items).toEqual([expect.objectContaining({ mint: s.mint, symbol: "FEED", trace: { state: "none", score: null, level: null } })]);
+    expect(before.items[0]).not.toHaveProperty("tracedAt");
+    expect(before.stats).toEqual({ seenLastHour: 1, tracedLastHour: 0, highRiskShare: null, connected: false });
+
+    await startTrace(s.mint);
+    expect((await app.inject({ method: "GET", url: "/api/feed" })).json().items[0].trace.state).toMatch(/queued|running/);
+    await jobs.whenIdle();
+    const traced = (await app.inject({ method: "GET", url: "/api/feed?tab=traced&hideHigh=1" })).json();
+    expect(traced.items[0].trace).toEqual({ state: "done", score: 50, level: "medium" });
+  });
+
+  it("rejects bad feed queries", async () => {
+    expect((await app.inject({ method: "GET", url: "/api/feed?limit=500" })).statusCode).toBe(400);
+    expect((await app.inject({ method: "GET", url: "/api/feed?tab=nope" })).statusCode).toBe(400);
+  });
 });

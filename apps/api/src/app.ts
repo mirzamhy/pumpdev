@@ -1,7 +1,7 @@
 import Fastify, { type FastifyInstance } from "fastify";
 import rateLimit from "@fastify/rate-limit";
 import type { SqliteStore } from "@pumpfun/db";
-import { TraceRequest, type TraceEvent } from "@pumpfun/shared";
+import { FeedQuery, TraceRequest, type FeedItem, type FeedResponse, type TraceEvent } from "@pumpfun/shared";
 import type { ApiConfig } from "./config";
 import type { JobManager } from "./jobs";
 
@@ -11,6 +11,8 @@ export interface AppDeps {
   config: Pick<ApiConfig, "traceRateLimitPerMin" | "freshResultSec">;
   logger?: boolean;
   now?: () => number;
+  /** Whether the live feed websocket is connected; absent when the feed is disabled. */
+  feedStatus?: () => boolean;
 }
 
 const PING_MS = 15_000;
@@ -94,6 +96,17 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
   app.get<{ Params: { address: string } }>("/api/wallet/:address", async (req) => store.walletView(req.params.address));
 
   app.get("/api/recent", async () => store.recent(20));
+
+  app.get("/api/feed", async (req, reply): Promise<FeedResponse | void> => {
+    const parsed = FeedQuery.safeParse(req.query);
+    if (!parsed.success) return reply.code(400).send({ error: "Invalid feed query" });
+    const t = now();
+    const items: FeedItem[] = store.feed({ ...parsed.data, now: t }).map(({ score, level, tracedAt: _tracedAt, ...row }) => ({
+      ...row,
+      trace: { state: jobs.stateOf(row.mint) ?? (score !== null ? "done" : "none"), score, level },
+    }));
+    return { items, stats: { ...store.feedStats(t), connected: deps.feedStatus?.() ?? false } };
+  });
 
   return app;
 }

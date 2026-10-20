@@ -8,7 +8,11 @@ export function Layout() {
           <Link to="/" className="font-mono font-semibold text-accent">
             pumpfun.dev
           </Link>
-          <span className="text-xs text-muted">dev wallet screener</span>
+          <nav className="flex items-center gap-4 text-sm">
+            <Link to="/screener" className="text-muted hover:text-text [&.active]:text-text">
+              Screener
+            </Link>
+          </nav>
         </div>
       </header>
       <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6">

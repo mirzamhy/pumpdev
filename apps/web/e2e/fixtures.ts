@@ -1,4 +1,4 @@
-import type { TraceResult } from "@pumpfun/shared";
+import type { FeedItem, FeedResponse, TraceResult } from "@pumpfun/shared";
 
 export const MINT = "9BB6NFEcjBCtnNLFko2FqVQBq8HHM13kCyYcdQbgpump";
 const DEV = "7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU";
@@ -74,4 +74,33 @@ export const sampleResult: TraceResult = {
   },
   partial: false,
   finishedAt: 1_760_000_100,
+};
+
+const feedItem = (over: Partial<FeedItem>): FeedItem => ({
+  mint: MINT,
+  name: "Test Coin",
+  symbol: "TEST",
+  creator: DEV,
+  createdAt: Math.floor(Date.now() / 1000) - 90,
+  marketCapSol: 70.4,
+  progressPct: 50,
+  peakProgressPct: 50,
+  realSol: 17.6,
+  initialBuySol: 1,
+  complete: false,
+  migratedAt: null,
+  isMayhemMode: false,
+  copycatCount: 0,
+  autoTraced: false,
+  trace: { state: "none", score: null, level: null },
+  ...over,
+});
+
+export const sampleFeed: FeedResponse = {
+  items: [
+    feedItem({ autoTraced: true, trace: { state: "done", score: 82, level: "high" } }),
+    feedItem({ mint: FUNDER, name: "Queued Coin", symbol: "QUEUE", progressPct: 41, trace: { state: "queued", score: null, level: null } }),
+    feedItem({ mint: BUNDLER, name: "Korean Coin", symbol: "KOREAN", copycatCount: 3, marketCapSol: 28, progressPct: 1, peakProgressPct: 60 }),
+  ],
+  stats: { seenLastHour: 1200, tracedLastHour: 12, highRiskShare: 0.5, connected: true },
 };

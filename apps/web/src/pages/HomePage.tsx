@@ -18,6 +18,13 @@ export function HomePage() {
       <div className="mt-8">
         <SearchBox autoFocus />
       </div>
+      <p className="mt-4 text-sm text-muted">
+        Or watch new launches on the{" "}
+        <Link to="/screener" className="text-accent hover:underline">
+          live screener
+        </Link>
+        .
+      </p>
       <section className="mt-12">
         <h2 className="text-xs font-semibold uppercase tracking-wider text-muted">Recently traced</h2>
         <div className="mt-3">

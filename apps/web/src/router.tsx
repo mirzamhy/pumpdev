@@ -10,13 +10,18 @@ const tokenRoute = createRoute({
   path: "/token/$mint",
   component: lazyRouteComponent(() => import("./pages/TokenPage"), "TokenPage"),
 });
+const screenerRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/screener",
+  component: lazyRouteComponent(() => import("./pages/ScreenerPage"), "ScreenerPage"),
+});
 const walletRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/wallet/$address",
   component: lazyRouteComponent(() => import("./pages/WalletPage"), "WalletPage"),
 });
 
-export const router = createRouter({ routeTree: rootRoute.addChildren([indexRoute, tokenRoute, walletRoute]) });
+export const router = createRouter({ routeTree: rootRoute.addChildren([indexRoute, screenerRoute, tokenRoute, walletRoute]) });
 
 declare module "@tanstack/react-router" {
   interface Register {

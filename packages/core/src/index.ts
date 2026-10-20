@@ -2,6 +2,7 @@ export * from "./chain";
 export * from "./store";
 export * from "./config";
 export * from "./abort";
+export * from "./concurrency";
 export * from "./pda";
 export * from "./signatures";
 export * from "./cachedChain";

@@ -35,9 +35,10 @@ export async function resolveToken(mint: string, chain: ChainSource, cfg: TraceC
   let createBlockTime: number | null = null;
   let initialBuy: bigint | null = null;
 
-  const { sigs, complete } = await collectSignatures(chain, mint, cfg.mintMaxPages, cfg.pageSize);
+  const { sigs, complete } = await collectSignatures(chain, curveAddress, cfg.curveMaxPages, cfg.pageSize);
   if (complete) {
-    // The creation tx is the oldest one. Check the 3 oldest in case the very first failed.
+    // The curve only sees bonding-curve trades (not post-migration AMM swaps), so its history stays
+    // bounded even for huge tokens. The creation tx is the oldest one; check 3 in case the first failed.
     for (let i = sigs.length - 1; i >= 0 && i >= sigs.length - 3; i--) {
       const sig = sigs[i]!;
       if (sig.err) continue;

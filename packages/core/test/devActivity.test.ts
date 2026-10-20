@@ -141,5 +141,8 @@ describe("analyzeDev", () => {
     expect(history).toEqual([]);
     expect(historyPartial).toBe(true);
     expect(status.partial).toBe(true);
+    // Only the 200-token transfer is visible, but holding 450 of 1050 acquired means 600 left the wallet.
+    expect(status.transferredOut).toBe("200");
+    expect(status.releasedPct).toBe(57.14);
   });
 });

@@ -39,7 +39,7 @@ export async function createScenario(): Promise<Scenario> {
       pumpEventIx(encodeTradeEvent({ mint, solAmount: 1_000_000_000n, tokenAmount: 1000n, isBuy: true, user: deployer, timestamp: createdAt })),
     ],
   });
-  chain.setHistory(mint, [{ signature: "create-main", tx: createTx }]);
+  chain.setHistory(curve, [{ signature: "create-main", tx: createTx }]);
 
   const fundTx = makeTx({ signature: "fund-dev", blockTime: createdAt - 600, instructions: [systemTransfer(funder, deployer, 2_000_000_000)] });
   const sellTx = makeTx({

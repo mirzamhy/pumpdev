@@ -1,8 +1,8 @@
 export interface TraceConfig {
   /** Signatures per getSignaturesForAddress page (RPC max 1000). */
   pageSize: number;
-  /** Pages to walk back on the mint to find its creation tx. */
-  mintMaxPages: number;
+  /** Pages to walk back on the bonding curve account to find the creation tx. */
+  curveMaxPages: number;
   /** Pages to walk back on a wallet before calling it high-activity. */
   walletMaxPages: number;
   /** Oldest transactions inspected when looking for a wallet's first SOL funding. */
@@ -14,7 +14,7 @@ export interface TraceConfig {
 
 export const DEFAULT_CONFIG: TraceConfig = {
   pageSize: 1000,
-  mintMaxPages: 20,
+  curveMaxPages: 40,
   walletMaxPages: 5,
   oldestTxScan: 10,
   maxHops: 5,

@@ -44,9 +44,9 @@ function startsWith(data: Uint8Array, prefix: Uint8Array, at: number): boolean {
 
 function decodeCreate(body: Uint8Array): CreateEvent {
   const r = new Reader(body);
-  const name = r.string();
-  const symbol = r.string();
-  const uri = r.string();
+  const name = r.string().trim();
+  const symbol = r.string().trim();
+  const uri = r.string().trim();
   const mint = r.pubkey();
   const bondingCurve = r.pubkey();
   const user = r.pubkey();

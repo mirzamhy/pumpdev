@@ -4,6 +4,7 @@ import type { TraceConfig } from "../config";
 import { bondingCurvePda } from "../pda";
 import { decodeBondingCurve } from "../pump/bondingCurve";
 import type { CreateEvent } from "../pump/events";
+import { mapLimit } from "../concurrency";
 import { lamportDelta, ownerGainedOtherToken, pumpEvents, tokenDeltas } from "../tx";
 
 export interface DevActivity {
@@ -18,15 +19,17 @@ interface DevTx {
 }
 
 const DAY = 86_400;
+const TX_FETCH_CONCURRENCY = 4;
 
 export async function analyzeDev(token: TokenInfo, chain: ChainSource, cfg: TraceConfig, now: number): Promise<DevActivity> {
   const sigs = await chain.getSignatures(token.deployer, { limit: cfg.devTxScan });
-  const txs: DevTx[] = [];
-  for (const sig of sigs) {
-    if (sig.err) continue;
-    const tx = await chain.getTransaction(sig.signature);
-    if (tx) txs.push({ sig, tx });
-  }
+  // RPC latency, not the rate limit, is the bottleneck for sequential fetches; the pool still caps the rate.
+  const fetched = await mapLimit(
+    sigs.filter((s) => !s.err),
+    TX_FETCH_CONCURRENCY,
+    async (sig) => ({ sig, tx: await chain.getTransaction(sig.signature) }),
+  );
+  const txs: DevTx[] = fetched.filter((f): f is DevTx => f.tx !== null);
   const holdings = await chain.getTokenHoldings(token.deployer);
   const balances = new Map(holdings.map((h) => [h.mint, BigInt(h.amount)]));
   const scannedAll = sigs.length < cfg.devTxScan;
@@ -122,14 +125,18 @@ function buildStatus(token: TokenInfo, txs: DevTx[], balances: Map<string, bigin
   }
 
   const initialBuy = token.devInitialBuy === null ? null : BigInt(token.devInitialBuy);
+  const balance = balances.get(token.mint) ?? 0n;
   const base = (initialBuy ?? 0n) + bought;
-  const released = sold + transferredOut;
+  // Sells older than the scan window are invisible, but a balance below what the dev acquired still shows them.
+  const shortfall = base > balance ? base - balance : 0n;
+  const seen = sold + transferredOut;
+  const released = seen > shortfall ? seen : shortfall;
   return {
     initialBuy: initialBuy === null ? null : initialBuy.toString(),
     bought: bought.toString(),
     sold: sold.toString(),
     transferredOut: transferredOut.toString(),
-    balance: (balances.get(token.mint) ?? 0n).toString(),
+    balance: balance.toString(),
     releasedPct: base > 0n ? Number((released * 10_000n) / base) / 100 : null,
     transfers,
     partial: !reachedLaunch,

@@ -54,6 +54,12 @@ describe("decodePumpEventData", () => {
     expect(ev.event.tokenProgram).toBeNull();
   });
 
+  it("trims padded names and symbols (seen on real tokens)", () => {
+    const data = encodeCreateEvent({ name: "Fartcoin ", symbol: "Fartcoin ", uri: " u ", mint: addr(1), bondingCurve: addr(2), user: addr(3) });
+    const ev = decodePumpEventData(data);
+    expect(ev?.kind === "create" && [ev.event.name, ev.event.symbol, ev.event.uri]).toEqual(["Fartcoin", "Fartcoin", "u"]);
+  });
+
   it("decodes a TradeEvent and ignores trailing fields", () => {
     const data = encodeTradeEvent({ mint: addr(1), solAmount: 5n, tokenAmount: 1000n, isBuy: false, user: addr(9), timestamp: 42 });
     expect(decodePumpEventData(data)).toEqual({

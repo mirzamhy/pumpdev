@@ -36,7 +36,7 @@ async function world(opts: { creator?: string; extraSigs?: number } = {}) {
     ],
   });
   const trades = Array.from({ length: opts.extraSigs ?? 2 }, (_, i) => ({ signature: `trade-${i}` }));
-  chain.setHistory(MINT, [{ signature: "create", tx: createTx }, ...trades]);
+  chain.setHistory(curve, [{ signature: "create", tx: createTx }, ...trades]);
   return chain;
 }
 
@@ -70,7 +70,7 @@ describe("resolveToken", () => {
 
   it("falls back to the curve creator when history is too long", async () => {
     const chain = await world({ creator: NEW_CREATOR, extraSigs: 5 });
-    const { info } = await resolveToken(MINT, chain, { ...DEFAULT_CONFIG, pageSize: 2, mintMaxPages: 2 });
+    const { info } = await resolveToken(MINT, chain, { ...DEFAULT_CONFIG, pageSize: 2, curveMaxPages: 2 });
     expect(info.createTxFound).toBe(false);
     expect(info.deployer).toBe(NEW_CREATOR);
     expect(info.devInitialBuy).toBeNull();

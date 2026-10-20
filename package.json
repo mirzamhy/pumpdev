@@ -1,0 +1,21 @@
+{
+  "name": "pumpfun-dev",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "test": "pnpm -r --if-present test",
+    "typecheck": "pnpm -r --if-present typecheck",
+    "dev:api": "pnpm --filter @pumpfun/api dev",
+    "dev:web": "pnpm --filter @pumpfun/web dev"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.5",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.5"
+  },
+  "packageManager": "pnpm@12.14.0"
+}

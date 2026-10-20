@@ -13,3 +13,4 @@ export * from "./pump/events";
 export * from "./trace/resolveToken";
 export * from "./trace/funders";
 export * from "./trace/devActivity";
+export * from "./score";

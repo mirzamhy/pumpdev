@@ -97,7 +97,8 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
 
   app.get("/api/recent", async () => store.recent(20));
 
-  app.get("/api/feed", async (req, reply): Promise<FeedResponse | void> => {
+  // Polled every few seconds by every open screener; keep it out of the request log.
+  app.get("/api/feed", { logLevel: "warn" }, async (req, reply): Promise<FeedResponse | void> => {
     const parsed = FeedQuery.safeParse(req.query);
     if (!parsed.success) return reply.code(400).send({ error: "Invalid feed query" });
     const t = now();

@@ -242,3 +242,22 @@ Hasil spike dicatat di `docs/spikes/` dan spec diperbarui kalau ada yang berubah
 ## 13. Di luar cakupan sub-project 1
 
 Bundle detector, bubble map, sniper, fresh wallet holder, insider supply % (sub-project 2). Screener, socials recycle, coin tiruan (sub-project 3). Watchlist, alert Telegram, wash trading, laporan komunitas (sub-project 4). Akun user, login, pembayaran. Cek mint/freeze authority dan LP (token pump.fun dikelola protokol, nilai informasinya rendah untuk v1).
+
+## 14. Revisi setelah perencanaan dan uji mainnet (2026-10-20)
+
+Tidak mengubah apa yang dilihat user, kecuali poin 11.
+
+1. Transport RPC memakai pool `fetch` sendiri (rate limit, rotasi, retry di satu kelas). `@solana/kit` tetap dipakai untuk validasi alamat, PDA, dan base58.
+2. Tanpa Drizzle: tabelnya sedikit, cukup `better-sqlite3` langsung.
+3. Tanpa CLI shadcn: beberapa komponen Tailwind kecil ditulis sendiri.
+4. Transaksi create dicari dari signature tertua milik **akun bonding curve** (maksimal 40 halaman), bukan milik mint. Setelah migrasi semua trading pindah ke PumpSwap, jadi riwayat curve berhenti bertambah; riwayat mint token besar (misal Fartcoin) tidak terbatas. Signature create yang sudah ditemukan disimpan dan dipakai lagi di trace berikutnya.
+5. Riwayat token dev diambil dari 60 transaksi terbaru dev, diambil 4 sekaligus (dipakai bersama untuk status dev lewat cache transaksi). Jalur cepat `getProgramAccounts` dihapus: akun `BondingCurve` tidak menyimpan mint.
+6. Decoder event pump.fun ada di `packages/core`. Prefix event Anchor di chain adalah hash `anchor:event` yang dibalik (`e445a52e51cb9a1d`).
+7. SSE tidak punya event `edge` terpisah (setiap `node` membawa `fundedBy`); ada event `step` untuk progres. Job yang terputus karena restart diakhiri dengan event `error`.
+8. Halaman wallet hanya menampilkan data yang sudah ada di cache.
+9. Tabel DB final: `wallets`, `tx_cache`, `tokens`, `dev_tokens`, `trace_wallets`, `trace_results`, `trace_jobs`, `trace_events`. Status dev dan transfer insider disimpan di dalam JSON hasil trace.
+10. RPC wajib meminta `maxSupportedTransactionVersion: 1` (mainnet sudah punya transaksi versi 1).
+11. Persen "released" dev juga menghitung selisih antara yang dibeli dan saldo sekarang, supaya penjualan yang lebih tua dari jendela scan tetap terlihat.
+12. Riwayat dev juga mencocokkan field `creator` (launch lewat tool pihak ketiga ditandatangani bot). Wallet `unknown_origin` dicek ulang setelah 1 hari.
+
+Catatan uji: `docs/spikes/2026-10-20-live-rpc.md`.

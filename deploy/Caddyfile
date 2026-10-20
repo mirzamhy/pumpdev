@@ -1,0 +1,20 @@
+pumpfun.dev {
+	encode zstd gzip
+
+	handle /api/* {
+		reverse_proxy api:3001 {
+			# keep SSE streaming unbuffered
+			flush_interval -1
+		}
+	}
+
+	handle {
+		root * /srv
+		try_files {path} /index.html
+		file_server
+	}
+}
+
+www.pumpfun.dev {
+	redir https://pumpfun.dev{uri} permanent
+}

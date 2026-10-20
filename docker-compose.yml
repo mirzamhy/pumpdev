@@ -1,0 +1,32 @@
+services:
+  api:
+    build:
+      context: .
+      target: api
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DB_PATH: /data/pumpfun.db
+      PORT: "3001"
+    volumes:
+      - data:/data
+
+  web:
+    build:
+      context: .
+      target: web
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - api
+
+volumes:
+  data:
+  caddy_data:
+  caddy_config:

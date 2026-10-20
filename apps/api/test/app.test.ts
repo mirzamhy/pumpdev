@@ -85,6 +85,22 @@ describe("API", () => {
     expect(stream.body).toContain("not a pump.fun token");
   });
 
+  it("ends the stream of a job interrupted by a restart with an error", async () => {
+    store.createJob("old", s.mint, 1);
+    store.appendEvent("old", 0, { type: "step", data: { step: "token", state: "running" } });
+    store.markRunningJobsInterrupted(2);
+    const stream = await app.inject({ method: "GET", url: "/api/trace/old/stream" });
+    expect(stream.body).toContain('"type":"step"');
+    expect(stream.body).toContain("This trace was interrupted");
+  });
+
+  it("does not add an error after a finished job's done event", async () => {
+    const { jobId } = (await startTrace(s.mint)).json() as { jobId: string };
+    await jobs.whenIdle();
+    const stream = await app.inject({ method: "GET", url: `/api/trace/${jobId}/stream` });
+    expect(stream.body).not.toContain('"type":"error"');
+  });
+
   it("returns 404 for unknown jobs and untraced tokens", async () => {
     expect((await app.inject({ method: "GET", url: "/api/trace/nope/stream" })).statusCode).toBe(404);
     expect((await app.inject({ method: "GET", url: `/api/token/${addr(5)}` })).statusCode).toBe(404);

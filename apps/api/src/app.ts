@@ -80,7 +80,8 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
     for (const { seq, event } of store.listEvents(job.id)) send(seq, event);
     replaying = false;
     for (const [seq, event] of buffered) send(seq, event);
-    if (!unsubscribe) finish();
+    // Not running and never finished: the server restarted mid-trace. Tell the client instead of hanging.
+    if (!unsubscribe) send(lastSeq + 1, { type: "error", data: { message: "This trace was interrupted. Please try again." } });
     req.raw.on("close", finish);
   });
 

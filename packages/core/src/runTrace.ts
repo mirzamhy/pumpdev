@@ -45,7 +45,7 @@ export async function runTrace(mint: string, deps: TraceDeps): Promise<TraceResu
   }
 
   mark("token", "running");
-  const { info: token } = await resolveToken(mint, chain, cfg);
+  const { info: token } = await resolveToken(mint, chain, cfg, store.findCreateSignature(mint));
   emit({ type: "token", data: token });
   mark("token", "done");
 

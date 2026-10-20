@@ -21,7 +21,45 @@ export interface ResolvedToken {
   curve: BondingCurveState;
 }
 
-export async function resolveToken(mint: string, chain: ChainSource, cfg: TraceConfig): Promise<ResolvedToken> {
+interface CreationTx {
+  event: CreateEvent;
+  signature: string;
+  blockTime: number | null;
+  initialBuy: bigint;
+}
+
+async function readCreation(chain: ChainSource, mint: string, signature: string): Promise<CreationTx | null> {
+  const tx = await chain.getTransaction(signature);
+  if (!tx) return null;
+  const events = pumpEvents(tx);
+  const found = events.find((e) => e.kind === "create" && e.event.mint === mint);
+  if (!found || found.kind !== "create") return null;
+  const user = found.event.user;
+  const buy = events.find((e) => e.kind === "trade" && e.event.mint === mint && e.event.user === user && e.event.isBuy);
+  return { event: found.event, signature, blockTime: tx.blockTime, initialBuy: buy && buy.kind === "trade" ? buy.event.tokenAmount : 0n };
+}
+
+async function findCreation(chain: ChainSource, mint: string, curveAddress: string, cfg: TraceConfig): Promise<CreationTx | null> {
+  const { sigs, complete } = await collectSignatures(chain, curveAddress, cfg.curveMaxPages, cfg.pageSize);
+  if (!complete) return null;
+  // The curve only sees bonding-curve trades (not post-migration AMM swaps), so its history stays
+  // bounded even for huge tokens. The creation tx is the oldest one; check 3 in case the first failed.
+  for (let i = sigs.length - 1; i >= 0 && i >= sigs.length - 3; i--) {
+    const sig = sigs[i]!;
+    if (sig.err) continue;
+    const creation = await readCreation(chain, mint, sig.signature);
+    if (creation) return creation;
+  }
+  return null;
+}
+
+/** `knownCreateSignature` comes from an earlier trace; busy tokens outgrow the history walk within hours. */
+export async function resolveToken(
+  mint: string,
+  chain: ChainSource,
+  cfg: TraceConfig,
+  knownCreateSignature: string | null = null,
+): Promise<ResolvedToken> {
   if (!isAddress(mint)) throw new NotPumpTokenError("That is not a valid Solana address.");
   const curveAddress = await bondingCurvePda(mint);
   const account = await chain.getAccount(curveAddress);
@@ -30,32 +68,13 @@ export async function resolveToken(mint: string, chain: ChainSource, cfg: TraceC
   }
   const curve = decodeBondingCurve(account.data);
 
-  let create: CreateEvent | null = null;
-  let createSignature: string | null = null;
-  let createBlockTime: number | null = null;
-  let initialBuy: bigint | null = null;
-
-  const { sigs, complete } = await collectSignatures(chain, curveAddress, cfg.curveMaxPages, cfg.pageSize);
-  if (complete) {
-    // The curve only sees bonding-curve trades (not post-migration AMM swaps), so its history stays
-    // bounded even for huge tokens. The creation tx is the oldest one; check 3 in case the first failed.
-    for (let i = sigs.length - 1; i >= 0 && i >= sigs.length - 3; i--) {
-      const sig = sigs[i]!;
-      if (sig.err) continue;
-      const tx = await chain.getTransaction(sig.signature);
-      if (!tx) continue;
-      const events = pumpEvents(tx);
-      const found = events.find((e) => e.kind === "create" && e.event.mint === mint);
-      if (!found || found.kind !== "create") continue;
-      create = found.event;
-      createSignature = sig.signature;
-      createBlockTime = tx.blockTime;
-      const user = found.event.user;
-      const buy = events.find((e) => e.kind === "trade" && e.event.mint === mint && e.event.user === user && e.event.isBuy);
-      initialBuy = buy && buy.kind === "trade" ? buy.event.tokenAmount : 0n;
-      break;
-    }
-  }
+  const creation =
+    (knownCreateSignature ? await readCreation(chain, mint, knownCreateSignature) : null) ??
+    (await findCreation(chain, mint, curveAddress, cfg));
+  const create = creation?.event ?? null;
+  const createSignature = creation?.signature ?? null;
+  const createBlockTime = creation?.blockTime ?? null;
+  const initialBuy = creation?.initialBuy ?? null;
 
   const deployer = create?.user ?? curve.creator;
   if (!deployer) throw new NotPumpTokenError("Could not determine who deployed this token.");

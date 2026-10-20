@@ -22,6 +22,8 @@ export interface Store {
   putWallet(record: WalletRecord): void;
   getTx(signature: string): ParsedTx | null;
   putTx(signature: string, tx: ParsedTx): void;
+  /** Creation tx found by an earlier trace of this mint, so busy tokens skip the history walk. */
+  findCreateSignature(mint: string): string | null;
   /** Other traced tokens in which any of `wallets` appeared. */
   findCrosslinks(wallets: string[], excludeMint: string): Crosslink[];
   /** For each wallet: how many "dead, dev exited" tokens it is linked to (as funder of their dev, or as their dev). */

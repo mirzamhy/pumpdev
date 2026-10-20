@@ -86,6 +86,13 @@ export class SqliteStore implements Store {
     this.db.prepare("INSERT OR IGNORE INTO tx_cache (signature, json) VALUES (?, ?)").run(signature, JSON.stringify(tx));
   }
 
+  findCreateSignature(mint: string): string | null {
+    const row = this.db
+      .prepare("SELECT json_extract(json, '$.token.createSignature') AS sig FROM trace_results WHERE mint = ?")
+      .get(mint) as { sig: string | null } | undefined;
+    return row?.sig ?? null;
+  }
+
   findCrosslinks(wallets: string[], excludeMint: string): Crosslink[] {
     if (wallets.length === 0) return [];
     return this.db

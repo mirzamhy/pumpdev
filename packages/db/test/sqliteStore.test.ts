@@ -100,6 +100,12 @@ describe("SqliteStore results", () => {
     expect(store.recent(10)).toEqual([{ mint: "MINTA", name: "Name MINTA", symbol: "MIN", score: 42, level: "medium", finishedAt: 1000 }]);
   });
 
+  it("remembers the creation signature of traced tokens", () => {
+    store.saveResult(result("MINTA", "DEVA", []));
+    expect(store.findCreateSignature("MINTA")).toBe("c");
+    expect(store.findCreateSignature("OTHER")).toBeNull();
+  });
+
   it("finds wallets shared with other traces, ignoring high-activity wallets", () => {
     store.saveResult(
       result("MINTA", "DEVA", ["F1"], {

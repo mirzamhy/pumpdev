@@ -76,6 +76,13 @@ describe("resolveToken", () => {
     expect(info.devInitialBuy).toBeNull();
   });
 
+  it("uses a creation signature known from an earlier trace without walking history", async () => {
+    const chain = await world({ extraSigs: 5 });
+    const { info } = await resolveToken(MINT, chain, { ...DEFAULT_CONFIG, pageSize: 2, curveMaxPages: 2 }, "create");
+    expect(info).toMatchObject({ createTxFound: true, deployer: DEV, devInitialBuy: "777" });
+    expect(chain.calls.some((c) => c.startsWith("sigs:"))).toBe(false);
+  });
+
   it("rejects tokens without a pump.fun bonding curve", async () => {
     await expect(resolveToken(addr(99), new FakeChain(), DEFAULT_CONFIG)).rejects.toBeInstanceOf(NotPumpTokenError);
   });

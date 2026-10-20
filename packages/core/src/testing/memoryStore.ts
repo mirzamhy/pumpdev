@@ -5,8 +5,13 @@ import type { Store, TaintedFunder, WalletRecord } from "../store";
 export class MemoryStore implements Store {
   readonly wallets = new Map<string, WalletRecord>();
   readonly txs = new Map<string, ParsedTx>();
+  readonly createSignatures = new Map<string, string>();
   crosslinks: Crosslink[] = [];
   tainted: TaintedFunder[] = [];
+
+  findCreateSignature(mint: string): string | null {
+    return this.createSignatures.get(mint) ?? null;
+  }
 
   getWallet(address: string): WalletRecord | null {
     return this.wallets.get(address) ?? null;

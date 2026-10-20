@@ -102,6 +102,7 @@ export async function runTrace(mint: string, deps: TraceDeps): Promise<TraceResu
     devHistory,
     devHistoryPartial,
     devStatus,
+    holders: null,
     crosslinks,
     score,
     partial,

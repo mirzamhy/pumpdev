@@ -17,6 +17,7 @@ export const sampleResult: TraceResult = {
     creatorOriginal: DEV,
     createdAt: 1_760_000_000,
     createSignature: "create",
+    createSlot: 1,
     complete: false,
     isMayhemMode: false,
     devInitialBuy: "1000000000",
@@ -28,6 +29,7 @@ export const sampleResult: TraceResult = {
   ],
   devHistory: [],
   devHistoryPartial: false,
+  holders: null,
   devStatus: {
     initialBuy: "1000000000",
     bought: "0",

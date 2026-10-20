@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { TraceRequest, formatSol, formatTokenAmount, shortAddress } from "../src/index";
+import { TraceRequest, formatPct, formatSol, formatTokenAmount, shortAddress } from "../src/index";
 
 const MINT = "9BB6NFEcjBCtnNLFko2FqVQBq8HHM13kCyYcdQbgpump";
 
@@ -27,6 +27,11 @@ describe("formatting", () => {
   });
   it("formats lamports as SOL", () => {
     expect(formatSol("1500000000")).toBe("1.5 SOL");
+  });
+  it("formats percentages", () => {
+    expect(formatPct(12.345)).toBe("12.3%");
+    expect(formatPct(0.04)).toBe("<0.1%");
+    expect(formatPct(0)).toBe("0%");
   });
   it("shortens addresses", () => {
     expect(shortAddress(MINT)).toBe("9BB6…pump");

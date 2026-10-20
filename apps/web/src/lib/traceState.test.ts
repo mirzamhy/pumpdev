@@ -27,6 +27,11 @@ describe("applyEvent", () => {
     expect(v.nodes).toHaveLength(2);
   });
 
+  it("stores holder analysis", () => {
+    const holders = { available: false, reason: "migrated" } as never;
+    expect(applyEvent(emptyView, { type: "holders", data: holders }).holders).toBe(holders);
+  });
+
   it("finishes on done or error", () => {
     expect(applyEvent(emptyView, { type: "done", data: { partial: true } })).toMatchObject({ done: true, partial: true });
     expect(applyEvent(emptyView, { type: "error", data: { message: "boom" } })).toMatchObject({ done: true, error: "boom" });
@@ -41,6 +46,7 @@ describe("traceReducer", () => {
       devHistory: [],
       devHistoryPartial: false,
       devStatus: null,
+      holders: null,
       crosslinks: [],
       score: { score: 10, level: "low", factors: [], incomplete: false },
       partial: false,
@@ -48,7 +54,7 @@ describe("traceReducer", () => {
     } as unknown as TraceResult;
     const v = traceReducer(emptyView, { kind: "result", result });
     expect(v).toMatchObject({ done: true, nodes: [node("A")], score: { score: 10 } });
-    expect(v.steps).toEqual({ token: "done", funders: "done", devActivity: "done", crosslinks: "done", score: "done" });
+    expect(v.steps).toEqual({ token: "done", funders: "done", devActivity: "done", holders: "done", crosslinks: "done", score: "done" });
     expect(viewFromResult(result)).toEqual(v);
   });
 

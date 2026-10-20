@@ -3,6 +3,7 @@ import type {
   Crosslink,
   DevStatus,
   DevToken,
+  HolderAnalysis,
   RiskScore,
   StepName,
   StepState,
@@ -17,6 +18,7 @@ export interface TraceView {
   devHistory: DevToken[] | null;
   devHistoryPartial: boolean;
   devStatus: DevStatus | null;
+  holders: HolderAnalysis | null;
   crosslinks: Crosslink[] | null;
   score: RiskScore | null;
   steps: Partial<Record<StepName, StepState>>;
@@ -31,6 +33,7 @@ export const emptyView: TraceView = {
   devHistory: null,
   devHistoryPartial: false,
   devStatus: null,
+  holders: null,
   crosslinks: null,
   score: null,
   steps: {},
@@ -56,6 +59,8 @@ export function applyEvent(v: TraceView, e: TraceEvent): TraceView {
       return { ...v, devHistory: e.data.tokens, devHistoryPartial: e.data.partial };
     case "devStatus":
       return { ...v, devStatus: e.data };
+    case "holders":
+      return { ...v, holders: e.data };
     case "crosslinks":
       return { ...v, crosslinks: e.data };
     case "score":
@@ -74,9 +79,10 @@ export function viewFromResult(r: TraceResult): TraceView {
     devHistory: r.devHistory,
     devHistoryPartial: r.devHistoryPartial,
     devStatus: r.devStatus,
+    holders: r.holders,
     crosslinks: r.crosslinks,
     score: r.score,
-    steps: { token: "done", funders: "done", devActivity: "done", crosslinks: "done", score: "done" },
+    steps: { token: "done", funders: "done", devActivity: "done", holders: "done", crosslinks: "done", score: "done" },
     done: true,
     partial: r.partial,
     error: null,

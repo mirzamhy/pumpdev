@@ -11,7 +11,7 @@ export type TraceRequest = z.infer<typeof TraceRequest>;
 export const TOKEN_DECIMALS = 6;
 
 export type TerminalReason = "high_activity" | "unknown_origin" | "max_depth" | "loop" | "incomplete";
-export type StepName = "token" | "funders" | "devActivity" | "crosslinks" | "score";
+export type StepName = "token" | "funders" | "devActivity" | "holders" | "crosslinks" | "score";
 export type StepState = "running" | "done" | "incomplete";
 export type NodeRole = "deployer" | "creator" | "funder";
 export type RiskLevel = "low" | "medium" | "high";
@@ -29,6 +29,7 @@ export interface TokenInfo {
   creatorOriginal: string | null;
   createdAt: number | null;
   createSignature: string | null;
+  createSlot: number | null;
   complete: boolean;
   isMayhemMode: boolean;
   devInitialBuy: string | null;
@@ -95,12 +96,58 @@ export interface RiskScore {
   incomplete: boolean;
 }
 
+export type HolderTag = "dev" | "insider" | "bundle" | "sniper" | "fresh" | "repeatSniper";
+
+export interface Holder {
+  address: string;
+  amount: string;
+  pct: number;
+  rank: number;
+  tags: HolderTag[];
+  cluster: number | null;
+  fundedBy: string | null;
+  firstSeenAt: number | null;
+}
+
+export interface HolderCluster {
+  id: number;
+  members: string[];
+  pct: number;
+  linkedToDev: boolean;
+  sharedFunder: string | null;
+}
+
+export interface EarlyBuyer {
+  wallet: string;
+  /** 0 = same slot as the create tx (bundle), 1–2 = the next slots (sniper). */
+  slotOffset: number;
+  bought: string;
+  holding: string;
+}
+
+export interface HolderAnalysis {
+  available: boolean;
+  reason: string | null;
+  holderCount: number;
+  totalSupply: string;
+  top: Holder[];
+  clusters: HolderCluster[];
+  /** null when the creation slot is unknown. */
+  earlyBuyers: EarlyBuyer[] | null;
+  bundlePct: number | null;
+  insiderPct: number | null;
+  top10Pct: number | null;
+  freshCount: number;
+  repeatSnipers: { wallet: string; count: number }[];
+}
+
 export type TraceEvent =
   | { type: "step"; data: { step: StepName; state: StepState } }
   | { type: "token"; data: TokenInfo }
   | { type: "node"; data: ChainNode }
   | { type: "devHistory"; data: { tokens: DevToken[]; partial: boolean } }
   | { type: "devStatus"; data: DevStatus }
+  | { type: "holders"; data: HolderAnalysis }
   | { type: "crosslinks"; data: Crosslink[] }
   | { type: "score"; data: RiskScore }
   | { type: "done"; data: { partial: boolean } }
@@ -112,6 +159,7 @@ export interface TraceResult {
   devHistory: DevToken[];
   devHistoryPartial: boolean;
   devStatus: DevStatus | null;
+  holders: HolderAnalysis | null;
   crosslinks: Crosslink[];
   score: RiskScore;
   partial: boolean;
@@ -150,6 +198,12 @@ export function formatTokenAmount(raw: string | bigint): string {
 
 export function formatSol(lamports: string | bigint): string {
   return `${solFmt.format(Number(BigInt(lamports)) / 1e9)} SOL`;
+}
+
+export function formatPct(n: number): string {
+  if (n === 0) return "0%";
+  if (n < 0.1) return "<0.1%";
+  return `${n.toFixed(1)}%`;
 }
 
 export function shortAddress(a: string): string {

@@ -104,6 +104,7 @@ const token: TokenInfo = {
   creatorOriginal: DEV,
   createdAt: CREATED,
   createSignature: "cMain",
+  createSlot: 1,
   complete: false,
   isMayhemMode: false,
   devInitialBuy: "1000",

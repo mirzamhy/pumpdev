@@ -25,6 +25,7 @@ export interface ResolvedToken {
 interface CreationTx {
   event: CreateEvent;
   signature: string;
+  slot: number;
   blockTime: number | null;
   initialBuy: bigint;
 }
@@ -37,7 +38,7 @@ async function readCreation(chain: ChainSource, mint: string, signature: string)
   if (!found || found.kind !== "create") return null;
   const user = found.event.user;
   const buy = events.find((e) => e.kind === "trade" && e.event.mint === mint && e.event.user === user && e.event.isBuy);
-  return { event: found.event, signature, blockTime: tx.blockTime, initialBuy: buy && buy.kind === "trade" ? buy.event.tokenAmount : 0n };
+  return { event: found.event, signature, slot: tx.slot, blockTime: tx.blockTime, initialBuy: buy && buy.kind === "trade" ? buy.event.tokenAmount : 0n };
 }
 
 async function findCreation(chain: ChainSource, mint: string, curveAddress: string, cfg: TraceConfig): Promise<CreationTx | null> {
@@ -95,6 +96,7 @@ export async function resolveToken(
     creatorOriginal: create?.creator ?? null,
     createdAt: create?.timestamp ?? createBlockTime,
     createSignature,
+    createSlot: creation?.slot ?? null,
     complete: curve.complete,
     isMayhemMode: curve.isMayhemMode || (create?.isMayhemMode ?? false),
     devInitialBuy: initialBuy === null ? null : initialBuy.toString(),

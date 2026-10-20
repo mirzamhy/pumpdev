@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { FeedQuery, TraceRequest, formatPct, formatSol, formatTokenAmount, shortAddress } from "../src/index";
+import { FeedQuery, TraceRequest, curveDumped, formatPct, formatSol, formatTokenAmount, shortAddress } from "../src/index";
 
 const MINT = "9BB6NFEcjBCtnNLFko2FqVQBq8HHM13kCyYcdQbgpump";
 
@@ -49,5 +49,14 @@ describe("FeedQuery", () => {
   it("rejects out-of-range limits and unknown tabs", () => {
     expect(FeedQuery.safeParse({ limit: "500" }).success).toBe(false);
     expect(FeedQuery.safeParse({ tab: "old" }).success).toBe(false);
+  });
+});
+
+describe("curveDumped", () => {
+  it("flags curves that gave back most of a real run", () => {
+    expect(curveDumped({ progressPct: 0, peakProgressPct: 77, complete: false })).toBe(true);
+    expect(curveDumped({ progressPct: 40, peakProgressPct: 77, complete: false })).toBe(false);
+    expect(curveDumped({ progressPct: 2, peakProgressPct: 12, complete: false })).toBe(false);
+    expect(curveDumped({ progressPct: 100, peakProgressPct: 100, complete: true })).toBe(false);
   });
 });

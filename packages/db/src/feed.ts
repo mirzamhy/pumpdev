@@ -34,6 +34,7 @@ export interface FeedRowRaw {
   created_at: number;
   market_cap_sol: number | null;
   progress_pct: number;
+  peak_progress_pct: number;
   real_sol: number;
   initial_buy_sol: number | null;
   complete: number;
@@ -54,6 +55,7 @@ export const rawToFeedRow = (r: FeedRowRaw): FeedRow => ({
   createdAt: r.created_at,
   marketCapSol: r.market_cap_sol,
   progressPct: r.progress_pct,
+  peakProgressPct: r.peak_progress_pct,
   realSol: r.real_sol,
   initialBuySol: r.initial_buy_sol,
   complete: r.complete === 1,

@@ -79,6 +79,7 @@ CREATE TABLE IF NOT EXISTS feed_tokens (
   mayhem INTEGER NOT NULL DEFAULT 0,
   market_cap_sol REAL,
   progress_pct REAL NOT NULL DEFAULT 0,
+  peak_progress_pct REAL NOT NULL DEFAULT 0,
   real_sol REAL NOT NULL DEFAULT 0,
   complete INTEGER NOT NULL DEFAULT 0,
   migrated_at INTEGER,

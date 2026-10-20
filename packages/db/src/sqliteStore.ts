@@ -272,9 +272,9 @@ export class SqliteStore implements Store {
     const result = this.db
       .prepare(
         `INSERT OR IGNORE INTO feed_tokens (mint, name, symbol, symbol_key, uri, creator, bonding_curve, create_signature, created_at,
-           initial_buy_sol, mayhem, market_cap_sol, progress_pct, real_sol)
+           initial_buy_sol, mayhem, market_cap_sol, progress_pct, peak_progress_pct, real_sol)
          VALUES (@mint, @name, @symbol, @symbolKey, @uri, @creator, @bondingCurve, @createSignature, @createdAt,
-           @initialBuySol, @mayhem, @marketCapSol, @progressPct, @realSol)`,
+           @initialBuySol, @mayhem, @marketCapSol, @progressPct, @progressPct, @realSol)`,
       )
       .run({ ...t, isMayhemMode: null, symbolKey: symbolKey(t.symbol), mayhem: t.isMayhemMode ? 1 : 0 });
     return result.changes === 1;
@@ -282,7 +282,8 @@ export class SqliteStore implements Store {
 
   updateFeedCurves(rows: FeedCurveUpdate[], polledAt: number): void {
     const update = this.db.prepare(
-      `UPDATE feed_tokens SET market_cap_sol = @marketCapSol, progress_pct = @progressPct, real_sol = @realSol,
+      `UPDATE feed_tokens SET market_cap_sol = @marketCapSol, progress_pct = @progressPct, peak_progress_pct = MAX(peak_progress_pct, @progressPct),
+         real_sol = @realSol,
          complete = MAX(complete, @complete), polled_at = @polledAt WHERE mint = @mint`,
     );
     this.db.transaction(() => {
@@ -291,7 +292,7 @@ export class SqliteStore implements Store {
   }
 
   markMigrated(mint: string, at: number): void {
-    this.db.prepare("UPDATE feed_tokens SET complete = 1, progress_pct = 100, migrated_at = COALESCE(migrated_at, ?) WHERE mint = ?").run(at, mint);
+    this.db.prepare("UPDATE feed_tokens SET complete = 1, progress_pct = 100, peak_progress_pct = 100, migrated_at = COALESCE(migrated_at, ?) WHERE mint = ?").run(at, mint);
   }
 
   markAutoTraced(mint: string, at: number): void {
@@ -331,7 +332,7 @@ export class SqliteStore implements Store {
     const hideHigh = opts.hideHigh ? "AND (tr.mint IS NULL OR json_extract(tr.json, '$.score.level') != 'high')" : "";
     const rows = this.db
       .prepare(
-        `SELECT f.mint, f.name, f.symbol, f.creator, f.created_at, f.market_cap_sol, f.progress_pct, f.real_sol, f.initial_buy_sol,
+        `SELECT f.mint, f.name, f.symbol, f.creator, f.created_at, f.market_cap_sol, f.progress_pct, f.peak_progress_pct, f.real_sol, f.initial_buy_sol,
            f.complete, f.migrated_at, f.mayhem, f.auto_traced_at,
            CASE WHEN f.symbol_key IS NULL THEN 0 ELSE (
              SELECT COUNT(*) FROM feed_tokens o WHERE o.symbol_key = f.symbol_key AND o.mint != f.mint AND o.created_at > @daySince

@@ -86,6 +86,8 @@ describe("feed tokens", () => {
     store.insertFeedToken(token("A"));
     store.updateFeedCurves([{ mint: "A", marketCapSol: 70.5, progressPct: 50, realSol: 17.6, complete: false }], NOW);
     expect(store.feed({ tab: "new", hideHigh: false, limit: 10, now: NOW })[0]).toMatchObject({ marketCapSol: 70.5, progressPct: 50, realSol: 17.6, complete: false });
+    store.updateFeedCurves([{ mint: "A", marketCapSol: 28, progressPct: 1, realSol: 0, complete: false }], NOW + 2);
+    expect(store.feed({ tab: "new", hideHigh: false, limit: 10, now: NOW })[0]).toMatchObject({ progressPct: 1, peakProgressPct: 50 });
     store.markMigrated("A", NOW + 5);
     expect(store.feed({ tab: "new", hideHigh: false, limit: 10, now: NOW })[0]).toMatchObject({ complete: true, migratedAt: NOW + 5 });
   });

@@ -200,6 +200,8 @@ export interface FeedItem {
   createdAt: number;
   marketCapSol: number | null;
   progressPct: number;
+  /** Highest progress seen while polling. */
+  peakProgressPct: number;
   realSol: number;
   initialBuySol: number | null;
   complete: boolean;
@@ -222,6 +224,11 @@ export interface FeedStats {
 export interface FeedResponse {
   items: FeedItem[];
   stats: FeedStats;
+}
+
+/** The curve gave back most of its progress: holders sold into it (often the dev or a bundle). */
+export function curveDumped(item: Pick<FeedItem, "progressPct" | "peakProgressPct" | "complete">): boolean {
+  return !item.complete && item.peakProgressPct >= 20 && item.progressPct <= item.peakProgressPct * 0.4;
 }
 
 export const FeedQuery = z.object({

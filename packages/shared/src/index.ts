@@ -11,7 +11,7 @@ export type TraceRequest = z.infer<typeof TraceRequest>;
 export const TOKEN_DECIMALS = 6;
 
 export type TerminalReason = "high_activity" | "unknown_origin" | "max_depth" | "loop" | "incomplete";
-export type StepName = "token" | "funders" | "devActivity" | "holders" | "crosslinks" | "score";
+export type StepName = "token" | "socials" | "funders" | "devActivity" | "holders" | "crosslinks" | "score";
 export type StepState = "running" | "done" | "incomplete";
 export type NodeRole = "deployer" | "creator" | "funder";
 export type RiskLevel = "low" | "medium" | "high";
@@ -141,9 +141,65 @@ export interface HolderAnalysis {
   repeatSnipers: { wallet: string; count: number }[];
 }
 
+export type TwitterKind = "account" | "tweet" | "community" | "other";
+
+export interface TwitterLink {
+  url: string;
+  kind: TwitterKind;
+  /** Lowercased account; for tweets, the tweet's author. */
+  handle: string | null;
+  tweetId: string | null;
+}
+
+export interface SocialReuse {
+  kind: "twitter" | "website" | "image";
+  value: string;
+  /** Other tokens, created at least an hour earlier, that list the same thing. */
+  tokens: { mint: string; symbol: string | null; createdAt: number }[];
+}
+
+export interface TokenSocials {
+  available: boolean;
+  reason: "no_uri" | "fetch_failed" | null;
+  twitter: TwitterLink | null;
+  telegram: string | null;
+  website: string | null;
+  /** Browser-loadable image URL (IPFS links rewritten to a working gateway). */
+  image: string | null;
+  description: string | null;
+  reuse: SocialReuse[];
+  /** Other tokens that link the same tweet. */
+  sameTweetCount: number;
+}
+
+export interface DevProfile {
+  launches: number;
+  dead: number;
+  migrated: number;
+  launchesPerDay: number | null;
+  /** Earlier launches where the dev's first sell is visible. */
+  soldObserved: number;
+  medianMinutesToSell: number | null;
+  /** Earlier launches the dev sold within 10 minutes. */
+  fastSells: number;
+  feeClaims: number;
+  feeClaimedSol: number;
+  partial: boolean;
+}
+
+export interface RiskyWallets {
+  serialDevs: { wallet: string; dead: number; total: number; lastAt: number | null }[];
+  funders: { wallet: string; deadLaunches: number; devs: number }[];
+  snipers: { wallet: string; launches: number }[];
+  launchers: { wallet: string; launches: number; lastAt: number }[];
+  generatedAt: number;
+}
+
 export type TraceEvent =
   | { type: "step"; data: { step: StepName; state: StepState } }
   | { type: "token"; data: TokenInfo }
+  | { type: "socials"; data: TokenSocials }
+  | { type: "devProfile"; data: DevProfile }
   | { type: "node"; data: ChainNode }
   | { type: "devHistory"; data: { tokens: DevToken[]; partial: boolean } }
   | { type: "devStatus"; data: DevStatus }
@@ -159,6 +215,9 @@ export interface TraceResult {
   devHistory: DevToken[];
   devHistoryPartial: boolean;
   devStatus: DevStatus | null;
+  /** Absent in results stored before sub-project 3.5. */
+  devProfile?: DevProfile | null;
+  socials?: TokenSocials | null;
   holders: HolderAnalysis | null;
   crosslinks: Crosslink[];
   score: RiskScore;
@@ -187,6 +246,8 @@ export interface WalletView {
     status: DevToken["status"] | null;
   }[];
   appearances: { mint: string; symbol: string | null; role: Crosslink["role"] }[];
+  /** From the newest trace where this wallet deployed the token. */
+  profile: DevProfile | null;
 }
 
 export type FeedTab = "new" | "hot" | "traced";
@@ -209,6 +270,8 @@ export interface FeedItem {
   isMayhemMode: boolean;
   /** Other tokens with the same ticker in the last 24 hours. */
   copycatCount: number;
+  /** Socials or image already used by a token created at least an hour earlier. */
+  recycledSocials: boolean;
   autoTraced: boolean;
   trace: { state: FeedTraceState; score: number | null; level: RiskLevel | null };
 }

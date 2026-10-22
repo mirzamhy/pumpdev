@@ -18,3 +18,4 @@ export * from "./trace/devActivity";
 export * from "./trace/holders";
 export * from "./score";
 export * from "./runTrace";
+export * from "./pump/socials";

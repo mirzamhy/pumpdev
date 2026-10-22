@@ -12,7 +12,6 @@ test("token page shows socials with reuse warnings and dev habits", async ({ pag
   const socials = page.locator("section", { has: page.getByRole("heading", { name: "Socials" }) });
   await expect(socials.getByText("Same website as")).toBeVisible();
   await expect(socials.getByRole("link", { name: "$OLDTEST" })).toBeVisible();
-  await expect(socials.getByText("Image was uploaded for another token:")).toBeVisible();
   await expect(socials.getByRole("link", { name: "Tweet by @elonmusk" })).toHaveAttribute("rel", "noopener noreferrer nofollow");
   await expect(socials.getByText("Links to a single post, not a project account")).toBeVisible();
   await expect(socials.getByText("4 other tokens link the same tweet.")).toBeVisible();
@@ -33,7 +32,7 @@ test("older results without socials still render", async ({ page }) => {
 });
 
 test("never links non-web socials", async ({ page }) => {
-  const socials = { ...sampleResult.socials!, website: "javascript:alert(1)", reuse: [], imageFromMint: null };
+  const socials = { ...sampleResult.socials!, website: "javascript:alert(1)", reuse: [] };
   await mockTrace(page, { ...sampleResult, socials });
   await page.goto(`/token/${MINT}`);
   await expect(page.getByText("javascript:alert(1)")).toBeVisible();

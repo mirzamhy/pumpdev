@@ -107,7 +107,6 @@ export function computeScore(input: ScoreInput): RiskScore {
   factors.push(...holderFactors(input.holders));
 
   const reuse = input.socials?.reuse ?? [];
-  const imageFromMint = input.socials?.imageFromMint ?? null;
   if (reuse.length > 0) {
     const what = reuse.map((r) => (r.kind === "twitter" ? `X account @${r.value}` : r.kind === "website" ? `website ${r.value}` : "image")).join(", ");
     const older = new Set(reuse.flatMap((r) => r.tokens.map((t) => t.mint))).size;
@@ -115,12 +114,6 @@ export function computeScore(input: ScoreInput): RiskScore {
       id: "recycledSocials",
       points: RISK_WEIGHTS.recycledSocials,
       reason: `Reuses the ${what} of ${plural(older, "older token")}.`,
-    });
-  } else if (imageFromMint) {
-    factors.push({
-      id: "recycledSocials",
-      points: RISK_WEIGHTS.recycledSocials,
-      reason: `Its image was uploaded for another token (${shortAddress(imageFromMint)}).`,
     });
   }
 

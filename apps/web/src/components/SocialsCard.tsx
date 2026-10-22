@@ -54,16 +54,8 @@ export function SocialsCard({ socials, loading }: { socials: TokenSocials | null
   const none = !twitter && !telegram && !website;
   return (
     <Card title="Socials">
-      {(socials.reuse.length > 0 || socials.imageFromMint) && (
+      {socials.reuse.length > 0 && (
         <div className="mb-3 space-y-2 rounded-lg border border-warn/40 p-3 text-sm">
-          {socials.imageFromMint && (
-            <p>
-              <span className="text-warn">Image was uploaded for another token:</span>{" "}
-              <Link to="/token/$mint" params={{ mint: socials.imageFromMint }} className="font-mono hover:text-accent">
-                {shortAddress(socials.imageFromMint)}
-              </Link>
-            </p>
-          )}
           {socials.reuse.map((r) => (
             <p key={r.kind}>
               <span className="text-warn">{reuseLabel[r.kind]}</span>{" "}

@@ -82,7 +82,6 @@ export const sampleResult: TraceResult = {
     image: null,
     description: "The test coin.",
     reuse: [{ kind: "website", value: "testcoin.example", tokens: [{ mint: SIB_A, symbol: "OLDTEST", createdAt: 1_759_000_000 }] }],
-    imageFromMint: SIB_B,
     sameTweetCount: 4,
   },
   crosslinks: [],

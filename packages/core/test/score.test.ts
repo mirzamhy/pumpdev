@@ -197,7 +197,6 @@ describe("socials and dev habit factors", () => {
     image: null,
     description: null,
     reuse,
-    imageFromMint: null,
     sameTweetCount: 0,
   });
   const profile = (fastSells: number): DevProfile => ({
@@ -223,9 +222,6 @@ describe("socials and dev habit factors", () => {
     });
     expect(s.factors).toEqual([{ id: "recycledSocials", points: 15, reason: "Reuses the X account @dev, image of 2 older tokens." }]);
     expect(computeScore({ ...base, socials: socials([]) }).factors).toEqual([]);
-    expect(computeScore({ ...base, socials: { ...socials([]), imageFromMint: "9qJfF6BWRsCdkdnZYNRfznJkFYgCGKoeHJ3fNAmPpump" } }).factors).toEqual([
-      { id: "recycledSocials", points: 15, reason: "Its image was uploaded for another token (9qJf…pump)." },
-    ]);
   });
 
   it("flags devs who repeatedly sell within 10 minutes", () => {

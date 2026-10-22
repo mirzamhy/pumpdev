@@ -2,8 +2,6 @@
 
 Paste a pump.fun token address and see who funded the dev: the dev wallet's first SOL, traced back up to 5 wallets, the dev's other launches, whether the dev sold or moved tokens, links to other traced tokens, and a heuristic risk score. For tokens still on the bonding curve it also maps the holders: top 20 as a bubble map, wallets that look like one owner, launch-block buyers (bundles and snipers), fresh wallets, repeat snipers and the insider share of supply.
 
-Each trace also reads the token's metadata (X, Telegram, website, image) and flags socials or images recycled from tokens launched at least an hour earlier, and profiles the dev's habits from their recent transactions: launch rate, how fast they sold earlier launches, and creator-fee claims. The Risky wallets page (`/risky`) ranks devs with the most dead launches, funders behind them, wallets that buy early in many launches, and the busiest launchers, all from this site's own data.
-
 The live screener (`/screener`) lists every new pump.fun launch within seconds: age, market cap, bonding-curve progress, copycat tickers, dumps (curve gave back most of its progress), and the risk score once traced. Tokens that sell 40% of their curve in their first 15 minutes are traced automatically in the background, up to 20 per hour; any other token is traced when someone opens it. New tokens come from PumpPortal's free websocket (create and migration events only); curve numbers come from public RPC.
 
 Not financial advice. All data comes from public Solana RPC.

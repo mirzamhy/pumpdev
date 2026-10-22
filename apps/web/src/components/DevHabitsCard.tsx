@@ -2,6 +2,7 @@ import type { DevProfile } from "@pumpfun/shared";
 import { Card, Skeleton } from "./ui";
 
 const oneDecimal = (n: number) => (n >= 10 ? Math.round(n).toString() : n.toFixed(1).replace(/\.0$/, ""));
+const duration = (minutes: number) => (minutes < 1 ? `${Math.max(1, Math.round(minutes * 60))} sec` : `${oneDecimal(minutes)} min`);
 
 export function DevHabitsCard({ profile, loading = false }: { profile: DevProfile | null; loading?: boolean }) {
   if (!profile) {
@@ -12,7 +13,7 @@ export function DevHabitsCard({ profile, loading = false }: { profile: DevProfil
     rows.push(["Earlier launches", `${profile.launches} (${profile.dead} dead, ${profile.migrated} migrated)`, profile.dead >= 2]);
     if (profile.launchesPerDay !== null) rows.push(["Launch rate", `${oneDecimal(profile.launchesPerDay)} per day`, profile.launchesPerDay >= 3]);
     if (profile.medianMinutesToSell !== null) {
-      rows.push(["Typical time to first sell", `${oneDecimal(profile.medianMinutesToSell)} min`, profile.medianMinutesToSell <= 10]);
+      rows.push(["Typical time to first sell", duration(profile.medianMinutesToSell), profile.medianMinutesToSell <= 10]);
       rows.push(["Sold within 10 minutes", `${profile.fastSells} of ${profile.soldObserved}`, profile.fastSells >= 2]);
     }
   }

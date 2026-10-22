@@ -67,6 +67,8 @@ const FRESH_TRACE_SEC = HOUR;
 /** Socials shared with tokens younger than this are a copycat wave, not recycling. */
 const REUSE_MIN_AGE_SEC = HOUR;
 const REUSE_EXAMPLES = 5;
+/** A key shared by more tokens than this belongs to a platform or template (a launchpad site, a default image), not one project. */
+const REUSE_MAX_SHARED = 20;
 
 interface TokenMetaRow {
   mint: string;
@@ -99,11 +101,14 @@ const rowToMeta = (r: TokenMetaRow): TokenMetaRecord => ({
   description: r.description,
 });
 
+const shared = (column: string) => `(SELECT COUNT(*) FROM token_meta c WHERE c.${column} = me.${column}) <= ${REUSE_MAX_SHARED}`;
+
 /** Same project account, website or image as an older token (feed query, per row). */
 const RECYCLED_SQL = `EXISTS (
   SELECT 1 FROM token_meta me JOIN token_meta o ON o.mint != me.mint AND o.ok = 1 AND o.created_at <= me.created_at - ${REUSE_MIN_AGE_SEC}
-    AND ((me.twitter_kind = 'account' AND o.twitter_kind = 'account' AND o.twitter_handle = me.twitter_handle)
-      OR o.website_key = me.website_key OR o.image_key = me.image_key)
+    AND ((me.twitter_kind = 'account' AND o.twitter_kind = 'account' AND o.twitter_handle = me.twitter_handle AND ${shared("twitter_handle")})
+      OR (o.website_key = me.website_key AND ${shared("website_key")})
+      OR (o.image_key = me.image_key AND ${shared("image_key")}))
   WHERE me.mint = f.mint AND me.ok = 1
 )`;
 
@@ -457,24 +462,25 @@ export class SqliteStore implements Store {
   }
 
   findSocialReuse(mint: string, createdAt: number, keys: SocialKeys): { reuse: SocialReuse[]; sameTweetCount: number } {
-    const older = (condition: string, value: string) =>
-      this.db
+    const reuse: SocialReuse[] = [];
+    /** `column` is one of our own column names, never user input. */
+    const add = (kind: SocialReuse["kind"], value: string | null, column: string, extra = "") => {
+      if (!value) return;
+      const total = (this.db.prepare(`SELECT COUNT(*) AS n FROM token_meta WHERE ${column} = ?`).get(value) as { n: number }).n;
+      if (total > REUSE_MAX_SHARED) return;
+      const tokens = this.db
         .prepare(
           `SELECT m.mint AS mint, COALESCE(f.symbol, t.symbol) AS symbol, m.created_at AS createdAt
            FROM token_meta m LEFT JOIN feed_tokens f ON f.mint = m.mint LEFT JOIN tokens t ON t.mint = m.mint
-           WHERE m.ok = 1 AND m.mint != ? AND m.created_at <= ? AND ${condition}
+           WHERE m.ok = 1 AND m.mint != ? AND m.created_at <= ? AND m.${column} = ? ${extra}
            ORDER BY m.created_at DESC LIMIT ?`,
         )
         .all(mint, createdAt - REUSE_MIN_AGE_SEC, value, REUSE_EXAMPLES) as SocialReuse["tokens"];
-    const reuse: SocialReuse[] = [];
-    const add = (kind: SocialReuse["kind"], value: string | null, condition: string) => {
-      if (!value) return;
-      const tokens = older(condition, value);
       if (tokens.length) reuse.push({ kind, value, tokens });
     };
-    add("twitter", keys.twitterHandle, "m.twitter_kind = 'account' AND m.twitter_handle = ?");
-    add("website", keys.websiteKey, "m.website_key = ?");
-    add("image", keys.imageKey, "m.image_key = ?");
+    add("twitter", keys.twitterHandle, "twitter_handle", "AND m.twitter_kind = 'account'");
+    add("website", keys.websiteKey, "website_key");
+    add("image", keys.imageKey, "image_key");
     const sameTweetCount = keys.tweetId
       ? (this.db.prepare("SELECT COUNT(*) AS n FROM token_meta WHERE ok = 1 AND tweet_id = ? AND mint != ?").get(keys.tweetId, mint) as { n: number }).n
       : 0;

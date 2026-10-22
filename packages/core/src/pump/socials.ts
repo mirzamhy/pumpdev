@@ -65,9 +65,12 @@ function parseTwitter(v: unknown): TwitterLink | null {
   return { url, kind: "other", handle: null, tweetId: null };
 }
 
+/** A path segment that looks like a Solana address: per-token pages on token-listing services. */
+const ADDRESS_SEGMENT = /\/[1-9A-HJ-NP-Za-km-z]{32,44}(\/|$)/;
+
 function websiteKey(u: URL): string {
   const host = bareHost(u.hostname);
-  if (!PLATFORM_HOSTS.has(host)) return host;
+  if (!PLATFORM_HOSTS.has(host) && !ADDRESS_SEGMENT.test(u.pathname)) return host;
   const path = u.pathname.replace(/\/+$/, "");
   return `${host}${path}`;
 }

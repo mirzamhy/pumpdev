@@ -41,6 +41,9 @@ describe("parseMetadata links and keys", () => {
     expect(parseMetadata({ website: "https://youtube.com/watch?v=1" }).websiteKey).toBe("youtube.com/watch");
     expect(parseMetadata({ website: "https://www.tiktok.com/@a/video/9/" }).websiteKey).toBe("tiktok.com/@a/video/9");
     expect(parseMetadata({ website: "ftp://x.com" })).toMatchObject({ website: null, websiteKey: null });
+    expect(parseMetadata({ website: "https://otcdesks.cash/coin/5nt1L6KuVyawLuAvG7SLwoTTsKcc1ZaVN9nZz6Kopump" }).websiteKey).toBe(
+      "otcdesks.cash/coin/5nt1L6KuVyawLuAvG7SLwoTTsKcc1ZaVN9nZz6Kopump",
+    );
   });
 
   it("keeps telegram only as an http(s) URL", () => {

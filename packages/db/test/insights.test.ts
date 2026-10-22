@@ -128,6 +128,14 @@ describe("token metadata", () => {
     expect(reuse[0]!.tokens).toHaveLength(5);
   });
 
+  it("ignores keys shared by so many tokens that they belong to a platform", () => {
+    for (let i = 0; i < 21; i++) store.putTokenMeta(meta(`P${i}`, NOW - 7200, { website: "https://launchpad.example", image: `ipfs://${CID}` }));
+    store.putTokenMeta(meta("FEW", NOW - 7200, { twitter: "https://x.com/dev" }));
+    const me = meta("ME", NOW, { website: "https://launchpad.example", image: `ipfs://${CID}`, twitter: "https://x.com/dev" });
+    store.putTokenMeta(me);
+    expect(store.findSocialReuse("ME", NOW, keysOf(me)).reuse.map((r) => r.kind)).toEqual(["twitter"]);
+  });
+
   it("prunes old metadata but keeps traced tokens", () => {
     store.putTokenMeta(meta("OLD", NOW - 20 * 86_400, {}));
     store.putTokenMeta(meta("TRACED", NOW - 20 * 86_400, {}));
@@ -143,8 +151,11 @@ describe("token metadata", () => {
     store.putTokenMeta(meta("OLD", NOW - 7200, { website: "https://rug.example" }));
     store.putTokenMeta(meta("ME", NOW - 60, { website: "https://rug.example" }));
     store.putTokenMeta(meta("CLEAN", NOW - 60, { website: "https://fresh.example" }));
+    store.insertFeedToken(feedToken("COMMON"));
+    for (let i = 0; i < 21; i++) store.putTokenMeta(meta(`P${i}`, NOW - 7200, { image: `ipfs://${CID}` }));
+    store.putTokenMeta(meta("COMMON", NOW - 60, { image: `ipfs://${CID}` }));
     const rows = store.feed({ tab: "new", hideHigh: false, limit: 10, now: NOW });
-    expect(Object.fromEntries(rows.map((r) => [r.mint, r.recycledSocials]))).toEqual({ ME: true, CLEAN: false });
+    expect(Object.fromEntries(rows.map((r) => [r.mint, r.recycledSocials]))).toEqual({ ME: true, CLEAN: false, COMMON: false });
   });
 });
 

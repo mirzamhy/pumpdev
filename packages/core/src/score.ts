@@ -3,6 +3,7 @@ import {
   formatTokenAmount,
   shortAddress,
   type ChainNode,
+  type DevProfile,
   type DevStatus,
   type DevToken,
   type HolderAnalysis,
@@ -10,6 +11,7 @@ import {
   type RiskLevel,
   type RiskScore,
   type TokenInfo,
+  type TokenSocials,
 } from "@pumpfun/shared";
 import type { TaintedFunder } from "./store";
 
@@ -25,6 +27,8 @@ export const RISK_WEIGHTS = {
   holderCluster: 15,
   freshHolders: 10,
   repeatSniper: 10,
+  recycledSocials: 15,
+  fastSeller: 15,
 } as const;
 
 export interface ScoreInput {
@@ -34,6 +38,8 @@ export interface ScoreInput {
   devStatus: DevStatus | null;
   taintedFunders: TaintedFunder[];
   holders: HolderAnalysis | null;
+  socials?: TokenSocials | null;
+  devProfile?: DevProfile | null;
   incomplete: boolean;
 }
 
@@ -99,6 +105,26 @@ export function computeScore(input: ScoreInput): RiskScore {
   }
 
   factors.push(...holderFactors(input.holders));
+
+  const reuse = input.socials?.reuse ?? [];
+  if (reuse.length > 0) {
+    const what = reuse.map((r) => (r.kind === "twitter" ? `X account @${r.value}` : r.kind === "website" ? `website ${r.value}` : "image")).join(", ");
+    const older = new Set(reuse.flatMap((r) => r.tokens.map((t) => t.mint))).size;
+    factors.push({
+      id: "recycledSocials",
+      points: RISK_WEIGHTS.recycledSocials,
+      reason: `Reuses the ${what} of ${plural(older, "older token")}.`,
+    });
+  }
+
+  const profile = input.devProfile;
+  if (profile && profile.fastSells >= 2) {
+    factors.push({
+      id: "fastSeller",
+      points: RISK_WEIGHTS.fastSeller,
+      reason: `Dev sold ${profile.fastSells} of ${profile.soldObserved} earlier launches within 10 minutes of launching.`,
+    });
+  }
 
   const score = Math.min(100, factors.reduce((sum, f) => sum + f.points, 0));
   return { score, level: riskLevel(score), factors, incomplete: input.incomplete };

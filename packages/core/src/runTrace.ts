@@ -1,6 +1,6 @@
-import type { ChainNode, Crosslink, HolderAnalysis, StepName, TraceEvent, TraceResult } from "@pumpfun/shared";
+import type { ChainNode, Crosslink, HolderAnalysis, StepName, TokenSocials, TraceEvent, TraceResult } from "@pumpfun/shared";
 import { withTxCache } from "./cachedChain";
-import type { ChainSource } from "./chain";
+import type { ChainSource, MetadataSource } from "./chain";
 import { DEFAULT_CONFIG, type TraceConfig } from "./config";
 import { computeScore } from "./score";
 import type { Store, TaintedFunder } from "./store";
@@ -8,10 +8,13 @@ import { analyzeDev, type DevActivity } from "./trace/devActivity";
 import { traceChain } from "./trace/funders";
 import { analyzeHolders } from "./trace/holders";
 import { resolveToken } from "./trace/resolveToken";
+import { analyzeSocials } from "./trace/socials";
 
 export interface TraceDeps {
   chain: ChainSource;
   store: Store;
+  /** Off-chain metadata for the socials step; without it only metadata already stored is used. */
+  metadata?: MetadataSource;
   emit: (event: TraceEvent) => void;
   now?: () => number;
   signal?: AbortSignal;
@@ -53,6 +56,9 @@ export async function runTrace(mint: string, deps: TraceDeps): Promise<TraceResu
   emit({ type: "token", data: token });
   mark("token", "done");
 
+  const socials = await step<TokenSocials | null>("socials", null, () => analyzeSocials(token, store, deps.metadata, now()));
+  if (socials) emit({ type: "socials", data: socials });
+
   const nodes: ChainNode[] = [];
   const onNode = (node: ChainNode) => {
     nodes.push(node);
@@ -69,8 +75,10 @@ export async function runTrace(mint: string, deps: TraceDeps): Promise<TraceResu
   const devHistory = dev?.history ?? [];
   const devHistoryPartial = dev ? dev.historyPartial : true;
   const devStatus = dev?.status ?? null;
+  const devProfile = dev?.profile ?? null;
   emit({ type: "devHistory", data: { tokens: devHistory, partial: devHistoryPartial } });
   if (devStatus) emit({ type: "devStatus", data: devStatus });
+  if (devProfile) emit({ type: "devProfile", data: devProfile });
 
   const holders = await step<HolderAnalysis | null>("holders", null, () => analyzeHolders({ token, nodes, devStatus }, chain, store, cfg, now()));
   if (holders) emit({ type: "holders", data: holders });
@@ -98,6 +106,8 @@ export async function runTrace(mint: string, deps: TraceDeps): Promise<TraceResu
     devStatus,
     taintedFunders,
     holders,
+    socials,
+    devProfile,
     incomplete:
       partial || !token.createTxFound || (devStatus?.partial ?? true) || nodes.some((n) => n.terminal === "incomplete"),
   });
@@ -110,6 +120,8 @@ export async function runTrace(mint: string, deps: TraceDeps): Promise<TraceResu
     devHistory,
     devHistoryPartial,
     devStatus,
+    devProfile,
+    socials,
     holders,
     crosslinks,
     score,

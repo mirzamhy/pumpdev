@@ -30,6 +30,12 @@ const PLATFORM_HOSTS = new Set([
 ]);
 const MAX_DESCRIPTION = 280;
 
+/**
+ * ipfs.io stopped serving API requests (always 429) in 2026; these answered every probe.
+ * First entry is also the one images are shown from.
+ */
+export const IPFS_GATEWAYS = ["https://ipfs.filebase.io/ipfs/", "https://4everland.io/ipfs/"];
+
 const bareHost = (host: string) => host.toLowerCase().replace(/^(www|mobile|m)\./, "");
 
 /** Only absolute http(s) URLs survive; everything else (javascript:, data:, bare handles) is dropped. */
@@ -74,6 +80,23 @@ export function ipfsCid(url: string): string | null {
   if (path) return path[1]!;
   const sub = s.match(/^https?:\/\/([a-z0-9]{50,})\.ipfs\./);
   return sub ? sub[1]! : null;
+}
+
+/** Browser-loadable image URL: IPFS images go through a working gateway. */
+export function displayImageUrl(image: string | null): string | null {
+  if (!image) return null;
+  const path = ipfsPath(image);
+  return path ? `${IPFS_GATEWAYS[0]}${path}` : image;
+}
+
+/** `CID[/sub/path]` of an IPFS URL, for rewriting onto another gateway. */
+export function ipfsPath(url: string): string | null {
+  const s = url.trim();
+  if (s.startsWith("ipfs://")) return s.slice(7) || null;
+  const m = s.match(/\/ipfs\/([A-Za-z0-9]{46,}(?:\/[^?#]*)?)/);
+  if (m) return m[1]!;
+  const cid = ipfsCid(s);
+  return cid;
 }
 
 function imageKey(raw: string, u: URL | null): string | null {

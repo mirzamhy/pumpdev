@@ -68,6 +68,11 @@ export interface MintHolderAccount {
   amount: string;
 }
 
+/** Fetches a token's off-chain metadata JSON (the `uri` of its create event). null when unavailable. */
+export interface MetadataSource {
+  fetch(uri: string): Promise<unknown | null>;
+}
+
 export interface ChainSource {
   /** Newest first. */
   getSignatures(address: string, opts: { before?: string; limit: number }): Promise<SignatureInfo[]>;

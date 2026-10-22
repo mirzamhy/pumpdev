@@ -1,5 +1,6 @@
-import type { Crosslink } from "@pumpfun/shared";
+import type { Crosslink, SocialReuse } from "@pumpfun/shared";
 import type { ParsedTx } from "./chain";
+import type { ParsedMetadata } from "./pump/socials";
 
 export interface WalletRecord {
   address: string;
@@ -25,6 +26,23 @@ export interface TaintedFunder {
   deadCount: number;
 }
 
+export interface TokenMetaRecord extends ParsedMetadata {
+  mint: string;
+  /** Token launch time (or first sighting); reuse compares against this. */
+  createdAt: number;
+  fetchedAt: number;
+  /** false when the metadata could not be fetched. */
+  ok: boolean;
+}
+
+export interface SocialKeys {
+  /** Only project accounts; a tweet author is not the project's account. */
+  twitterHandle: string | null;
+  websiteKey: string | null;
+  imageKey: string | null;
+  tweetId: string | null;
+}
+
 export interface Store {
   getWallet(address: string): WalletRecord | null;
   putWallet(record: WalletRecord): void;
@@ -38,4 +56,8 @@ export interface Store {
   findTaintedFunders(wallets: string[], excludeMint: string): TaintedFunder[];
   /** Wallets that were early buyers in at least 3 other traced mints. */
   findRepeatSnipers(wallets: string[], excludeMint: string): RepeatSniper[];
+  getTokenMeta(mint: string): TokenMetaRecord | null;
+  putTokenMeta(record: TokenMetaRecord): void;
+  /** Tokens created at least an hour before `createdAt` sharing an account, website or image; plus how many share the tweet. */
+  findSocialReuse(mint: string, createdAt: number, keys: SocialKeys): { reuse: SocialReuse[]; sameTweetCount: number };
 }

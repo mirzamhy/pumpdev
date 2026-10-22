@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { ChainNode, DevStatus, DevToken, HolderAnalysis, TokenInfo } from "@pumpfun/shared";
+import type { ChainNode, DevProfile, DevStatus, DevToken, HolderAnalysis, TokenInfo, TokenSocials } from "@pumpfun/shared";
 import { computeScore, riskLevel, type ScoreInput } from "../src/score";
 
 const token: TokenInfo = {
@@ -184,5 +184,50 @@ describe("holder factors", () => {
   it("stays below thresholds", () => {
     const s = computeScore({ ...base, holders: holders({ bundlePct: 9.9, insiderPct: 19.9, freshCount: 4, clusters: [{ id: 1, members: ["a", "b", "c"], pct: 9.9, linkedToDev: true, sharedFunder: null }] }) });
     expect(s.factors).toEqual([]);
+  });
+});
+
+describe("socials and dev habit factors", () => {
+  const socials = (reuse: TokenSocials["reuse"]): TokenSocials => ({
+    available: true,
+    reason: null,
+    twitter: null,
+    telegram: null,
+    website: null,
+    image: null,
+    description: null,
+    reuse,
+    sameTweetCount: 0,
+  });
+  const profile = (fastSells: number): DevProfile => ({
+    launches: 5,
+    dead: 0,
+    migrated: 0,
+    launchesPerDay: 1,
+    soldObserved: 4,
+    medianMinutesToSell: 8,
+    fastSells,
+    feeClaims: 0,
+    feeClaimedSol: 0,
+    partial: false,
+  });
+
+  it("flags recycled socials", () => {
+    const s = computeScore({
+      ...base,
+      socials: socials([
+        { kind: "twitter", value: "dev", tokens: [{ mint: "A", symbol: null, createdAt: 1 }] },
+        { kind: "image", value: "ipfs:Qm", tokens: [{ mint: "A", symbol: null, createdAt: 1 }, { mint: "B", symbol: null, createdAt: 2 }] },
+      ]),
+    });
+    expect(s.factors).toEqual([{ id: "recycledSocials", points: 15, reason: "Reuses the X account @dev, image of 2 older tokens." }]);
+    expect(computeScore({ ...base, socials: socials([]) }).factors).toEqual([]);
+  });
+
+  it("flags devs who repeatedly sell within 10 minutes", () => {
+    expect(computeScore({ ...base, devProfile: profile(2) }).factors).toEqual([
+      { id: "fastSeller", points: 15, reason: "Dev sold 2 of 4 earlier launches within 10 minutes of launching." },
+    ]);
+    expect(computeScore({ ...base, devProfile: profile(1) }).factors).toEqual([]);
   });
 });

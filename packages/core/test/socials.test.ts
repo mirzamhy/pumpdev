@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ipfsCid, parseMetadata } from "../src/pump/socials";
+import { ipfsCid, otherMintInImage, parseMetadata } from "../src/pump/socials";
 
 const CID = "QmVm9xTnQkSHjXZr5KDJ5jnsV6p2PfQbFnNCY7LypNoDK1";
 
@@ -76,5 +76,17 @@ describe("ipfsCid", () => {
     expect(ipfsCid(`https://foo.mypinata.cloud/ipfs/${CID}?x=1`)).toBe(CID);
     expect(ipfsCid("https://bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi.ipfs.dweb.link/")).toBe("bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi");
     expect(ipfsCid("https://example.com/a.json")).toBeNull();
+  });
+});
+
+describe("otherMintInImage", () => {
+  const OTHER = "9qJfF6BWRsCdkdnZYNRfznJkFYgCGKoeHJ3fNAmPpump";
+  const SELF = "2HfHap2fsqjtxMBFG1bt6omog2humFbQLbWVNQ2upump";
+  it("finds a different mint in the image file name", () => {
+    expect(otherMintInImage(`https://axiomtrading-v2.axiom-cdn.io/${OTHER}.webp`, SELF)).toBe(OTHER);
+    expect(otherMintInImage(`https://axiomtrading-v2.axiom-cdn.io/${SELF}.webp`, SELF)).toBeNull();
+    expect(otherMintInImage("https://cdn.example/3bf5450de1f34cc1fbb75368bc65734b5c2bcbc4f6adb16c2bd5d43b6bbee236.png", SELF)).toBeNull();
+    expect(otherMintInImage(`ipfs://${OTHER}`, SELF)).toBeNull();
+    expect(otherMintInImage(null, SELF)).toBeNull();
   });
 });

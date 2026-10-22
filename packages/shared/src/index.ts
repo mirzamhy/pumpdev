@@ -168,6 +168,8 @@ export interface TokenSocials {
   image: string | null;
   description: string | null;
   reuse: SocialReuse[];
+  /** Another token's mint found in the image file name (uploaders such as Axiom name images after the mint they were made for). */
+  imageFromMint: string | null;
   /** Other tokens that link the same tweet. */
   sameTweetCount: number;
 }

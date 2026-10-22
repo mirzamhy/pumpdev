@@ -85,6 +85,19 @@ export function ipfsCid(url: string): string | null {
   return sub ? sub[1]! : null;
 }
 
+const MINT_IN_FILE = /\/([1-9A-HJ-NP-Za-km-z]{32,44})\.(?:png|jpe?g|webp|gif|avif)$/i;
+
+/** A mint address in the image file name that is not `mint`: the image was uploaded for a different token. */
+export function otherMintInImage(image: string | null, mint: string): string | null {
+  if (!image) return null;
+  try {
+    const found = new URL(image).pathname.match(MINT_IN_FILE)?.[1];
+    return found && found !== mint ? found : null;
+  } catch {
+    return null;
+  }
+}
+
 /** Browser-loadable image URL: IPFS images go through a working gateway. */
 export function displayImageUrl(image: string | null): string | null {
   if (!image) return null;

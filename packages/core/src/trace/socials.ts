@@ -1,6 +1,6 @@
 import type { TokenInfo, TokenSocials } from "@pumpfun/shared";
 import type { MetadataSource } from "../chain";
-import { displayImageUrl, parseMetadata } from "../pump/socials";
+import { displayImageUrl, otherMintInImage, parseMetadata } from "../pump/socials";
 import type { Store, TokenMetaRecord } from "../store";
 
 const empty = (reason: TokenSocials["reason"]): TokenSocials => ({
@@ -12,6 +12,7 @@ const empty = (reason: TokenSocials["reason"]): TokenSocials => ({
   image: null,
   description: null,
   reuse: [],
+  imageFromMint: null,
   sameTweetCount: 0,
 });
 
@@ -50,6 +51,7 @@ export async function analyzeSocials(token: TokenInfo, store: Store, metadata: M
     image: displayImageUrl(record.image),
     description: record.description,
     reuse,
+    imageFromMint: otherMintInImage(record.image, token.mint),
     sameTweetCount,
   };
 }

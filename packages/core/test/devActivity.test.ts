@@ -7,7 +7,9 @@ import { analyzeDev } from "../src/trace/devActivity";
 import {
   FakeChain,
   addr,
+  ammEventIx,
   encodeBondingCurve,
+  encodeFeeClaimEvent,
   encodeCreateEvent,
   encodeTradeEvent,
   makeTx,
@@ -164,5 +166,73 @@ describe("analyzeDev", () => {
     // Only the 200-token transfer is visible, but holding 450 of 1050 acquired means 600 left the wallet.
     expect(status.transferredOut).toBe("200");
     expect(status.releasedPct).toBe(57.14);
+  });
+});
+
+describe("dev profile", () => {
+  const A = addr(41);
+  const B = addr(42);
+  const C = addr(43);
+  const sell = (sig: string, mint: string, ts: number, user = DEV) =>
+    makeTx({ signature: sig, blockTime: ts, inner: [pumpEventIx(encodeTradeEvent({ mint, solAmount: 1n, tokenAmount: 10n, isBuy: false, user, timestamp: ts }))] });
+
+  async function profileWorld() {
+    const chain = new FakeChain();
+    for (const mint of [A, B, C]) {
+      const pda = await bondingCurvePda(mint);
+      chain.accounts.set(pda, { address: pda, owner: PUMP_PROGRAM_ID, data: encodeBondingCurve({ complete: false, creator: DEV }) });
+    }
+    const t0 = NOW - 4 * DAY;
+    chain.setHistory(DEV, [
+      { signature: "cA", tx: createTx("cA", A, t0, 100n) },
+      { signature: "sA", tx: sell("sA", A, t0 + 240) },
+      { signature: "sA2", tx: sell("sA2", A, t0 + 900) },
+      { signature: "cB", tx: createTx("cB", B, t0 + DAY, 100n) },
+      { signature: "sB", tx: sell("sB", B, t0 + DAY + 1800) },
+      { signature: "sOther", tx: sell("sOther", B, t0 + DAY + 60, FRIEND) },
+      { signature: "cC", tx: createTx("cC", C, t0 + 2 * DAY, 100n) },
+      { signature: "cMain", tx: createTx("cMain", MINT, CREATED, 1000n) },
+      { signature: "sMain", tx: sell("sMain", MINT, CREATED + 30) },
+      {
+        signature: "fee1",
+        tx: makeTx({ signature: "fee1", blockTime: NOW - 100, inner: [pumpEventIx(encodeFeeClaimEvent({ creator: DEV, lamports: 500_000_000n, timestamp: NOW - 100 }))] }),
+      },
+      {
+        signature: "fee2",
+        tx: makeTx({
+          signature: "fee2",
+          blockTime: NOW - 50,
+          inner: [
+            ammEventIx(encodeFeeClaimEvent({ creator: DEV, lamports: 250_000_000n, timestamp: NOW - 50, program: "amm" })),
+            pumpEventIx(encodeFeeClaimEvent({ creator: FRIEND, lamports: 9_000_000_000n, timestamp: NOW - 50 })),
+          ],
+        }),
+      },
+    ]);
+    chain.holdings.set(DEV, [A, B, C].map((mint) => ({ mint, amount: "100" })));
+    return chain;
+  }
+
+  it("measures how fast the dev sold earlier launches and fee claims", async () => {
+    const { profile } = await analyzeDev(token, await profileWorld(), DEFAULT_CONFIG, NOW);
+    expect(profile).toEqual({
+      launches: 3,
+      dead: 0,
+      migrated: 0,
+      launchesPerDay: 0.75,
+      soldObserved: 2,
+      medianMinutesToSell: 17,
+      fastSells: 1,
+      feeClaims: 2,
+      feeClaimedSol: 0.75,
+      partial: false,
+    });
+  });
+
+  it("has no rate or timing for a first-time dev", async () => {
+    const chain = new FakeChain();
+    chain.setHistory(DEV, [{ signature: "cMain", tx: createTx("cMain", MINT, CREATED, 1000n) }]);
+    const { profile } = await analyzeDev(token, chain, DEFAULT_CONFIG, NOW);
+    expect(profile).toMatchObject({ launches: 0, launchesPerDay: null, soldObserved: 0, medianMinutesToSell: null, fastSells: 0, feeClaims: 0 });
   });
 });

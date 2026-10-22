@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { curveMetrics, decodeBondingCurve } from "../src/pump/bondingCurve";
 import { EVENT_IX_TAG, decodePumpEventData } from "../src/pump/events";
 import { TOKEN_2022_PROGRAM_ID } from "../src/pump/constants";
-import { addr, encodeBondingCurve, encodeCreateEvent, encodeTradeEvent } from "../src/testing";
+import { addr, encodeBondingCurve, encodeCreateEvent, encodeFeeClaimEvent, encodeTradeEvent } from "../src/testing";
 
 const hex = (b: Uint8Array) => Buffer.from(b).toString("hex");
 
@@ -138,5 +138,18 @@ describe("curveMetrics", () => {
 
   it("has no price when reserves are empty", () => {
     expect(curveMetrics(curve({})).marketCapSol).toBeNull();
+  });
+});
+
+describe("fee claim events", () => {
+  it("decodes pump and PumpSwap creator fee claims", () => {
+    expect(decodePumpEventData(encodeFeeClaimEvent({ creator: addr(7), lamports: 123n, timestamp: 99 }))).toEqual({
+      kind: "feeClaim",
+      event: { creator: addr(7), lamports: 123n, timestamp: 99 },
+    });
+    expect(decodePumpEventData(encodeFeeClaimEvent({ creator: addr(8), lamports: 5n, timestamp: 1, program: "amm" }))).toMatchObject({
+      kind: "feeClaim",
+      event: { creator: addr(8), lamports: 5n },
+    });
   });
 });

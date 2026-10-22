@@ -11,6 +11,10 @@ const disc = (s: string): Uint8Array => new Uint8Array(createHash("sha256").upda
 export const EVENT_IX_TAG = disc("anchor:event").slice().reverse();
 export const CREATE_EVENT_DISC = disc("event:CreateEvent");
 export const TRADE_EVENT_DISC = disc("event:TradeEvent");
+/** pump: creator fees claimed from the bonding-curve creator vault. */
+export const COLLECT_CREATOR_FEE_DISC = disc("event:CollectCreatorFeeEvent");
+/** PumpSwap: creator fees claimed after migration. */
+export const COLLECT_COIN_CREATOR_FEE_DISC = disc("event:CollectCoinCreatorFeeEvent");
 
 export interface CreateEvent {
   name: string;
@@ -34,7 +38,16 @@ export interface TradeEvent {
   timestamp: number;
 }
 
-export type PumpEvent = { kind: "create"; event: CreateEvent } | { kind: "trade"; event: TradeEvent };
+export interface FeeClaimEvent {
+  creator: string;
+  lamports: bigint;
+  timestamp: number;
+}
+
+export type PumpEvent =
+  | { kind: "create"; event: CreateEvent }
+  | { kind: "trade"; event: TradeEvent }
+  | { kind: "feeClaim"; event: FeeClaimEvent };
 
 function startsWith(data: Uint8Array, prefix: Uint8Array, at: number): boolean {
   if (data.length < at + prefix.length) return false;
@@ -76,13 +89,25 @@ function decodeTrade(body: Uint8Array): TradeEvent {
   return { mint, solAmount, tokenAmount, isBuy, user, timestamp };
 }
 
-/** Decodes the data of a self-CPI event instruction. Returns null for anything else. */
+/** Both fee events start with timestamp i64, creator pubkey, fee u64 (verified on mainnet transactions). */
+function decodeFeeClaim(body: Uint8Array): FeeClaimEvent {
+  const r = new Reader(body);
+  const timestamp = Number(r.i64());
+  const creator = r.pubkey();
+  const lamports = r.u64();
+  return { creator, lamports, timestamp };
+}
+
+/** Decodes the data of a self-CPI event instruction (pump or PumpSwap). Returns null for anything else. */
 export function decodePumpEventData(data: Uint8Array): PumpEvent | null {
   if (!startsWith(data, EVENT_IX_TAG, 0)) return null;
   const body = data.subarray(16);
   try {
     if (startsWith(data, CREATE_EVENT_DISC, 8)) return { kind: "create", event: decodeCreate(body) };
     if (startsWith(data, TRADE_EVENT_DISC, 8)) return { kind: "trade", event: decodeTrade(body) };
+    if (startsWith(data, COLLECT_CREATOR_FEE_DISC, 8) || startsWith(data, COLLECT_COIN_CREATOR_FEE_DISC, 8)) {
+      return { kind: "feeClaim", event: decodeFeeClaim(body) };
+    }
   } catch (err) {
     if (err instanceof RangeError) return null;
     throw err;

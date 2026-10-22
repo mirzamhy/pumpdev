@@ -1,4 +1,4 @@
-import type { DevStatus, DevToken, TokenInfo } from "@pumpfun/shared";
+import type { DevProfile, DevStatus, DevToken, TokenInfo } from "@pumpfun/shared";
 import type { AccountData, ChainSource, ParsedTx, SignatureInfo } from "../chain";
 import type { TraceConfig } from "../config";
 import { bondingCurvePda } from "../pda";
@@ -11,6 +11,7 @@ export interface DevActivity {
   history: DevToken[];
   historyPartial: boolean;
   status: DevStatus;
+  profile: DevProfile;
 }
 
 interface DevTx {
@@ -20,6 +21,8 @@ interface DevTx {
 
 const DAY = 86_400;
 const TX_FETCH_CONCURRENCY = 4;
+/** A dev selling an earlier launch within this many minutes counts as a fast sell. */
+const FAST_SELL_MIN = 10;
 
 export async function analyzeDev(token: TokenInfo, chain: ChainSource, cfg: TraceConfig, now: number): Promise<DevActivity> {
   const sigs = await chain.getSignatures(token.deployer, { limit: cfg.devTxScan });
@@ -34,10 +37,12 @@ export async function analyzeDev(token: TokenInfo, chain: ChainSource, cfg: Trac
   const balances = new Map(holdings.map((h) => [h.mint, BigInt(h.amount)]));
   const scannedAll = sigs.length < cfg.devTxScan;
 
+  const history = await buildHistory(token, txs, balances, chain, now);
   return {
-    history: await buildHistory(token, txs, balances, chain, now),
+    history,
     historyPartial: !scannedAll,
     status: buildStatus(token, txs, balances, scannedAll),
+    profile: buildProfile(token.deployer, txs, history, !scannedAll, now),
   };
 }
 
@@ -92,6 +97,51 @@ async function buildHistory(
       };
     })
     .sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0));
+}
+
+function median(values: number[]): number | null {
+  if (values.length === 0) return null;
+  const s = [...values].sort((a, b) => a - b);
+  const mid = Math.floor(s.length / 2);
+  return s.length % 2 ? s[mid]! : (s[mid - 1]! + s[mid]!) / 2;
+}
+
+/** Habits across the dev's earlier launches, from the same transaction window as the history. */
+function buildProfile(dev: string, txs: DevTx[], history: DevToken[], partial: boolean, now: number): DevProfile {
+  const firstSell = new Map<string, number>();
+  let feeClaims = 0;
+  let feeLamports = 0n;
+  for (const { tx } of txs) {
+    for (const e of pumpEvents(tx)) {
+      if (e.kind === "trade" && !e.event.isBuy && e.event.user === dev) {
+        const prev = firstSell.get(e.event.mint);
+        if (prev === undefined || e.event.timestamp < prev) firstSell.set(e.event.mint, e.event.timestamp);
+      } else if (e.kind === "feeClaim" && e.event.creator === dev) {
+        feeClaims++;
+        feeLamports += e.event.lamports;
+      }
+    }
+  }
+
+  const minutes = history.flatMap((t) => {
+    const sold = firstSell.get(t.mint);
+    return t.createdAt !== null && sold !== undefined && sold >= t.createdAt ? [(sold - t.createdAt) / 60] : [];
+  });
+  const created = history.map((t) => t.createdAt).filter((c): c is number => c !== null);
+  const oldest = created.length ? Math.min(...created) : null;
+  const days = oldest === null ? 0 : Math.max(1, (now - oldest) / DAY);
+  return {
+    launches: history.length,
+    dead: history.filter((t) => t.status === "dead_dev_exited").length,
+    migrated: history.filter((t) => t.status === "migrated").length,
+    launchesPerDay: history.length >= 2 && days > 0 ? history.length / days : null,
+    soldObserved: minutes.length,
+    medianMinutesToSell: median(minutes),
+    fastSells: minutes.filter((m) => m <= FAST_SELL_MIN).length,
+    feeClaims,
+    feeClaimedSol: Number(feeLamports) / 1e9,
+    partial,
+  };
 }
 
 function buildStatus(token: TokenInfo, txs: DevTx[], balances: Map<string, bigint>, scannedAll: boolean): DevStatus {

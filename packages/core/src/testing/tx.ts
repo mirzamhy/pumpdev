@@ -1,5 +1,5 @@
 import type { ParsedInstruction, ParsedTx, TokenBalance } from "../chain";
-import { PUMP_PROGRAM_ID, SYSTEM_PROGRAM_ID } from "../pump/constants";
+import { PUMP_AMM_PROGRAM_ID, PUMP_PROGRAM_ID, SYSTEM_PROGRAM_ID } from "../pump/constants";
 import { toBase58 } from "./encode";
 
 export interface MakeTxInput {
@@ -47,6 +47,10 @@ export function systemTransfer(from: string, to: string, lamports: number): Pars
 
 export function pumpEventIx(data: Uint8Array): ParsedInstruction {
   return { programId: PUMP_PROGRAM_ID, accounts: [], data: toBase58(data) };
+}
+
+export function ammEventIx(data: Uint8Array): ParsedInstruction {
+  return { programId: PUMP_AMM_PROGRAM_ID, accounts: [], data: toBase58(data) };
 }
 
 export function tokenBal(accountIndex: number, mint: string, owner: string, amount: bigint | number): TokenBalance {

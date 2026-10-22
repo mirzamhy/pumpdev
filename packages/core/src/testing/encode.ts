@@ -1,5 +1,5 @@
 import { getBase58Decoder, getBase58Encoder } from "@solana/kit";
-import { CREATE_EVENT_DISC, EVENT_IX_TAG, TRADE_EVENT_DISC } from "../pump/events";
+import { COLLECT_COIN_CREATOR_FEE_DISC, COLLECT_CREATOR_FEE_DISC, CREATE_EVENT_DISC, EVENT_IX_TAG, TRADE_EVENT_DISC } from "../pump/events";
 import { TOKEN_PROGRAM_ID } from "../pump/constants";
 
 const b58enc = getBase58Encoder();
@@ -114,6 +114,19 @@ export function encodeTradeEvent(e: TradeEventInput): Uint8Array {
     .u64(0n) // trailing fields real events carry; the decoder must ignore them
     .u64(0n)
     .build();
+}
+
+/** `program: "amm"` encodes PumpSwap's CollectCoinCreatorFeeEvent, which carries two extra accounts. */
+export function encodeFeeClaimEvent(e: { creator: string; lamports: bigint; timestamp: number; program?: "pump" | "amm" }): Uint8Array {
+  const amm = e.program === "amm";
+  const w = new Writer()
+    .bytes(EVENT_IX_TAG)
+    .bytes(amm ? COLLECT_COIN_CREATOR_FEE_DISC : COLLECT_CREATOR_FEE_DISC)
+    .i64(BigInt(e.timestamp))
+    .pubkey(e.creator)
+    .u64(e.lamports);
+  if (amm) w.bytes(new Uint8Array(64));
+  return w.build();
 }
 
 export interface MetadataInput {

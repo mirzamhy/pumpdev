@@ -1,6 +1,6 @@
 import { getBase58Encoder } from "@solana/kit";
 import type { ParsedInstruction, ParsedTx, TokenBalance } from "./chain";
-import { PUMP_PROGRAM_ID, SYSTEM_PROGRAM_ID } from "./pump/constants";
+import { PUMP_AMM_PROGRAM_ID, PUMP_PROGRAM_ID, SYSTEM_PROGRAM_ID } from "./pump/constants";
 import { decodePumpEventData, type PumpEvent } from "./pump/events";
 
 const b58 = getBase58Encoder();
@@ -82,7 +82,7 @@ export function ownerGainedOtherToken(tx: ParsedTx, owner: string, excludeMint: 
 export function pumpEvents(tx: ParsedTx): PumpEvent[] {
   const out: PumpEvent[] = [];
   for (const ix of allInstructions(tx)) {
-    if (ix.programId !== PUMP_PROGRAM_ID || !ix.data) continue;
+    if ((ix.programId !== PUMP_PROGRAM_ID && ix.programId !== PUMP_AMM_PROGRAM_ID) || !ix.data) continue;
     let bytes: Uint8Array;
     try {
       bytes = new Uint8Array(b58.encode(ix.data));

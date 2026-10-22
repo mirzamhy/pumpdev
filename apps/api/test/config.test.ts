@@ -12,14 +12,16 @@ describe("loadConfig", () => {
       traceRateLimitPerMin: 10,
       freshResultSec: 300,
       feedEnabled: true,
+      metadataFetch: "all",
       pumpPortalUrl: "wss://pumpportal.fun/api/data",
       feed: { pollSec: 20, autoTraceMinProgress: 40, autoTraceWindowSec: 900, autoTracePerHour: 20, retentionHours: 24 },
     });
   });
 
   it("reads feed overrides", () => {
-    const cfg = loadConfig({ FEED_ENABLED: "false", AUTO_TRACE_PER_HOUR: "5", AUTO_TRACE_MIN_PROGRESS: "60" });
+    const cfg = loadConfig({ FEED_ENABLED: "false", AUTO_TRACE_PER_HOUR: "5", AUTO_TRACE_MIN_PROGRESS: "60", METADATA_FETCH: "traced" });
     expect(cfg.feedEnabled).toBe(false);
+    expect(cfg.metadataFetch).toBe("traced");
     expect(cfg.feed).toMatchObject({ autoTracePerHour: 5, autoTraceMinProgress: 60 });
   });
 

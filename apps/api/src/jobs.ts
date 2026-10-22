@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { NotPumpTokenError, runTrace, type ChainSource, type TraceConfig } from "@pumpfun/core";
+import { NotPumpTokenError, runTrace, type ChainSource, type MetadataSource, type TraceConfig } from "@pumpfun/core";
 import type { SqliteStore } from "@pumpfun/db";
 import type { TraceEvent } from "@pumpfun/shared";
 
@@ -21,6 +21,7 @@ const MAX_AUTO_RUNNING = 1;
 export interface JobManagerDeps {
   store: SqliteStore;
   chain: ChainSource;
+  metadata?: MetadataSource;
   concurrency: number;
   timeoutMs: number;
   now?: () => number;
@@ -130,6 +131,7 @@ export class JobManager {
     try {
       const result = await runTrace(job.mint, {
         chain: this.deps.chain,
+        metadata: this.deps.metadata,
         store: this.deps.store,
         emit: (e) => this.emit(job, e),
         signal: controller.signal,

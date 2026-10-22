@@ -10,6 +10,8 @@ export interface ApiConfig {
   traceRateLimitPerMin: number;
   freshResultSec: number;
   feedEnabled: boolean;
+  /** "all": fetch metadata for every new token (needed for recycled-socials checks); "traced": only when tracing. */
+  metadataFetch: "all" | "traced";
   pumpPortalUrl: string;
   feed: FeedConfig;
 }
@@ -25,6 +27,7 @@ export function loadConfig(env: Record<string, string | undefined>): ApiConfig {
     traceRateLimitPerMin: num("TRACE_RATE_LIMIT", 10),
     freshResultSec: num("FRESH_RESULT_SEC", 300),
     feedEnabled: env.FEED_ENABLED !== "false",
+    metadataFetch: env.METADATA_FETCH === "traced" ? "traced" : "all",
     pumpPortalUrl: env.PUMPPORTAL_URL ?? "wss://pumpportal.fun/api/data",
     feed: {
       pollSec: num("FEED_POLL_SEC", 20),

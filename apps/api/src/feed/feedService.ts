@@ -8,6 +8,7 @@ import {
 } from "@pumpfun/core";
 import type { FeedCurveUpdate, SqliteStore } from "@pumpfun/db";
 import type { JobManager } from "../jobs";
+import type { MetadataQueue } from "./metadataQueue";
 import type { PortalEvent } from "./pumpPortal";
 
 export interface FeedConfig {
@@ -22,6 +23,8 @@ export interface FeedServiceDeps {
   store: SqliteStore;
   chain: ChainSource;
   jobs: Pick<JobManager, "start" | "autoBacklog">;
+  /** Fetches each new token's metadata in the background; absent when METADATA_FETCH=traced. */
+  metadata?: Pick<MetadataQueue, "enqueue" | "tick">;
   config: FeedConfig;
   /** Unix seconds. */
   now?: () => number;
@@ -30,6 +33,8 @@ export interface FeedServiceDeps {
 
 const ACCOUNTS_PER_CALL = 100;
 const PRUNE_EVERY_SEC = 600;
+/** Metadata outlives the feed so recycled socials from last week still match. */
+const META_RETENTION_SEC = 14 * 86_400;
 /** Do not queue more background traces than this; candidates wait for the next tick instead of going stale in a queue. */
 const MAX_AUTO_BACKLOG = 2;
 /** `virtual - real` token reserves, constant for every pump curve (279.9M tokens, raw units). */
@@ -75,7 +80,8 @@ export class FeedService {
         return;
       }
       const e = event.data;
-      this.deps.store.insertFeedToken({
+      const createdAt = this.now();
+      const inserted = this.deps.store.insertFeedToken({
         mint: e.mint,
         name: e.name,
         symbol: e.symbol,
@@ -83,13 +89,14 @@ export class FeedService {
         creator: e.creator,
         bondingCurve: e.bondingCurve ?? (await bondingCurvePda(e.mint)),
         createSignature: e.signature,
-        createdAt: this.now(),
+        createdAt,
         initialBuySol: e.initialBuySol,
         isMayhemMode: e.isMayhemMode,
         marketCapSol: e.marketCapSol,
         progressPct: progressFromVirtualTokens(e.vTokens),
         realSol: 0,
       });
+      if (inserted && e.uri) this.deps.metadata?.enqueue({ mint: e.mint, uri: e.uri, createdAt });
     } catch (err) {
       this.deps.log?.(`feed: could not store ${event.type} ${event.data.mint}`, err);
     }
@@ -102,9 +109,11 @@ export class FeedService {
       const now = this.now();
       await this.pollCurves(now);
       this.autoTrace(now);
+      this.deps.metadata?.tick();
       if (now - this.lastPrune >= PRUNE_EVERY_SEC) {
         this.lastPrune = now;
         this.deps.store.pruneFeed(now - this.deps.config.retentionHours * 3600);
+        this.deps.store.pruneTokenMeta(now - META_RETENTION_SEC);
       }
     } catch (err) {
       this.deps.log?.("feed: tick failed", err);

@@ -1,7 +1,7 @@
 import Fastify, { type FastifyInstance } from "fastify";
 import rateLimit from "@fastify/rate-limit";
 import type { SqliteStore } from "@pumpfun/db";
-import { FeedQuery, TraceRequest, type FeedItem, type FeedResponse, type TraceEvent } from "@pumpfun/shared";
+import { FeedQuery, TraceRequest, type FeedItem, type FeedResponse, type RiskyWallets, type TraceEvent } from "@pumpfun/shared";
 import type { ApiConfig } from "./config";
 import type { JobManager } from "./jobs";
 
@@ -16,6 +16,7 @@ export interface AppDeps {
 }
 
 const PING_MS = 15_000;
+const RISKY_CACHE_SEC = 60;
 
 export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
   const { store, jobs, config } = deps;
@@ -96,6 +97,13 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
   app.get<{ Params: { address: string } }>("/api/wallet/:address", async (req) => store.walletView(req.params.address));
 
   app.get("/api/recent", async () => store.recent(20));
+
+  let risky: RiskyWallets | null = null;
+  app.get("/api/risky", async () => {
+    const t = now();
+    if (!risky || t - risky.generatedAt >= RISKY_CACHE_SEC) risky = store.riskyWallets(t);
+    return risky;
+  });
 
   // Polled every few seconds by every open screener; keep it out of the request log.
   app.get("/api/feed", { logLevel: "warn" }, async (req, reply): Promise<FeedResponse | void> => {

@@ -138,4 +138,17 @@ describe("API", () => {
     expect((await app.inject({ method: "GET", url: "/api/feed?limit=500" })).statusCode).toBe(400);
     expect((await app.inject({ method: "GET", url: "/api/feed?tab=nope" })).statusCode).toBe(400);
   });
+
+  it("serves cached risky wallet lists", async () => {
+    const first = (await app.inject({ method: "GET", url: "/api/risky" })).json();
+    expect(first).toEqual({ serialDevs: [], funders: [], snipers: [], launchers: [], generatedAt: s.now + 10 });
+    for (let i = 0; i < 3; i++) {
+      store.insertFeedToken({
+        mint: addr(60 + i), name: null, symbol: null, uri: null, creator: "BUSY", bondingCurve: addr(70 + i), createSignature: null,
+        createdAt: s.now, initialBuySol: null, isMayhemMode: false, marketCapSol: null, progressPct: 0, realSol: 0,
+      });
+    }
+    // Still the cached answer within a minute.
+    expect((await app.inject({ method: "GET", url: "/api/risky" })).json().launchers).toEqual([]);
+  });
 });

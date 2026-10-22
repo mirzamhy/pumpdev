@@ -13,6 +13,8 @@ let chain: FakeChain;
 let now: number;
 let started: [string, string][];
 let backlog: number;
+let enqueued: { mint: string; uri: string; createdAt: number }[];
+let metaTicks: number;
 let service: FeedService;
 
 beforeEach(() => {
@@ -21,12 +23,15 @@ beforeEach(() => {
   now = NOW;
   started = [];
   backlog = 0;
+  enqueued = [];
+  metaTicks = 0;
   service = new FeedService({
     store,
     chain,
     jobs: { start: (mint, priority = "user") => (started.push([mint, priority]), "id"), autoBacklog: () => backlog },
     config: CONFIG,
     now: () => now,
+    metadata: { enqueue: (item) => void enqueued.push(item), tick: () => void metaTicks++ },
   });
 });
 afterEach(() => store.close());
@@ -144,5 +149,20 @@ describe("FeedService", () => {
     now += 25 * 3600;
     await service.tick();
     expect(feed()).toEqual([]);
+  });
+
+  it("queues metadata for new tokens with a uri and ticks the queue", async () => {
+    await service.handle({ type: "create", data: createEvent(11, { uri: "https://meta.example/11.json" }) });
+    await service.handle({ type: "create", data: createEvent(11, { uri: "https://meta.example/11.json" }) });
+    await service.handle({ type: "create", data: createEvent(12) });
+    expect(enqueued).toEqual([{ mint: addr(11), uri: "https://meta.example/11.json", createdAt: NOW }]);
+    await service.tick();
+    expect(metaTicks).toBe(1);
+  });
+
+  it("prunes metadata older than two weeks", async () => {
+    store.putTokenMeta({ mint: "OLD", createdAt: NOW - 15 * 86_400, fetchedAt: 0, ok: true, twitter: null, telegram: null, website: null, websiteKey: null, image: null, imageKey: null, description: null });
+    await service.tick();
+    expect(store.getTokenMeta("OLD")).toBeNull();
   });
 });

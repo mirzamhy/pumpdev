@@ -41,6 +41,7 @@ export interface FeedRowRaw {
   migrated_at: number | null;
   mayhem: number;
   copycat_count: number;
+  recycled_socials: number;
   auto_traced_at: number | null;
   score: number | null;
   level: RiskLevel | null;
@@ -62,6 +63,7 @@ export const rawToFeedRow = (r: FeedRowRaw): FeedRow => ({
   migratedAt: r.migrated_at,
   isMayhemMode: r.mayhem === 1,
   copycatCount: r.copycat_count,
+  recycledSocials: r.recycled_socials === 1,
   autoTraced: r.auto_traced_at !== null,
   score: r.score,
   level: r.level,

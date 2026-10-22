@@ -1,7 +1,22 @@
 import Database from "better-sqlite3";
-import type { ParsedTx, RepeatSniper, Store, TaintedFunder, WalletRecord } from "@pumpfun/core";
-import type { ChainNode, Crosslink, FeedStats, FeedTab, JobState, RecentTrace, TraceEvent, TraceResult, WalletView } from "@pumpfun/shared";
+import type { ParsedTx, RepeatSniper, SocialKeys, Store, TaintedFunder, TokenMetaRecord, WalletRecord } from "@pumpfun/core";
+import type {
+  ChainNode,
+  Crosslink,
+  DevProfile,
+  FeedStats,
+  FeedTab,
+  JobState,
+  RecentTrace,
+  RiskyWallets,
+  SocialReuse,
+  TraceEvent,
+  TraceResult,
+  TwitterKind,
+  WalletView,
+} from "@pumpfun/shared";
 import { rawToFeedRow, symbolKey, type FeedCurveUpdate, type FeedRow, type FeedRowRaw, type FeedTokenInput } from "./feed";
+import { riskyWallets } from "./risky";
 import { COLUMN_MIGRATIONS, SCHEMA } from "./schema";
 
 export interface JobRow {
@@ -49,6 +64,48 @@ const HOT_MAX_AGE_SEC = 6 * HOUR;
 const MAX_POLL = 1000;
 const MAX_CANDIDATES = 50;
 const FRESH_TRACE_SEC = HOUR;
+/** Socials shared with tokens younger than this are a copycat wave, not recycling. */
+const REUSE_MIN_AGE_SEC = HOUR;
+const REUSE_EXAMPLES = 5;
+
+interface TokenMetaRow {
+  mint: string;
+  created_at: number;
+  fetched_at: number;
+  ok: number;
+  twitter_url: string | null;
+  twitter_kind: TwitterKind | null;
+  twitter_handle: string | null;
+  tweet_id: string | null;
+  telegram: string | null;
+  website: string | null;
+  website_key: string | null;
+  image: string | null;
+  image_key: string | null;
+  description: string | null;
+}
+
+const rowToMeta = (r: TokenMetaRow): TokenMetaRecord => ({
+  mint: r.mint,
+  createdAt: r.created_at,
+  fetchedAt: r.fetched_at,
+  ok: r.ok === 1,
+  twitter: r.twitter_url && r.twitter_kind ? { url: r.twitter_url, kind: r.twitter_kind, handle: r.twitter_handle, tweetId: r.tweet_id } : null,
+  telegram: r.telegram,
+  website: r.website,
+  websiteKey: r.website_key,
+  image: r.image,
+  imageKey: r.image_key,
+  description: r.description,
+});
+
+/** Same project account, website or image as an older token (feed query, per row). */
+const RECYCLED_SQL = `EXISTS (
+  SELECT 1 FROM token_meta me JOIN token_meta o ON o.mint != me.mint AND o.ok = 1 AND o.created_at <= me.created_at - ${REUSE_MIN_AGE_SEC}
+    AND ((me.twitter_kind = 'account' AND o.twitter_kind = 'account' AND o.twitter_handle = me.twitter_handle)
+      OR o.website_key = me.website_key OR o.image_key = me.image_key)
+  WHERE me.mint = f.mint AND me.ok = 1
+)`;
 
 const FEED_ORDER: Record<FeedTab, { where: string; order: string }> = {
   new: { where: "1 = 1", order: "f.created_at DESC" },
@@ -337,6 +394,7 @@ export class SqliteStore implements Store {
            CASE WHEN f.symbol_key IS NULL THEN 0 ELSE (
              SELECT COUNT(*) FROM feed_tokens o WHERE o.symbol_key = f.symbol_key AND o.mint != f.mint AND o.created_at > @daySince
            ) END AS copycat_count,
+           ${RECYCLED_SQL} AS recycled_socials,
            tr.score AS score, json_extract(tr.json, '$.score.level') AS level, tr.finished_at AS traced_at
          FROM feed_tokens f LEFT JOIN trace_results tr ON tr.mint = f.mint
          WHERE ${where} ${hideHigh}
@@ -359,6 +417,78 @@ export class SqliteStore implements Store {
 
   pruneFeed(before: number): number {
     return this.db.prepare("DELETE FROM feed_tokens WHERE created_at < ?").run(before).changes;
+  }
+
+  // ---- Token metadata ----
+
+  getTokenMeta(mint: string): TokenMetaRecord | null {
+    const row = this.db.prepare("SELECT * FROM token_meta WHERE mint = ?").get(mint) as TokenMetaRow | undefined;
+    return row ? rowToMeta(row) : null;
+  }
+
+  putTokenMeta(m: TokenMetaRecord): void {
+    this.db
+      .prepare(
+        `INSERT INTO token_meta (mint, created_at, fetched_at, ok, twitter_url, twitter_kind, twitter_handle, tweet_id, telegram, website,
+           website_key, image, image_key, description)
+         VALUES (@mint, @createdAt, @fetchedAt, @ok, @twitterUrl, @twitterKind, @twitterHandle, @tweetId, @telegram, @website,
+           @websiteKey, @image, @imageKey, @description)
+         ON CONFLICT(mint) DO UPDATE SET fetched_at = excluded.fetched_at, ok = excluded.ok, twitter_url = excluded.twitter_url,
+           twitter_kind = excluded.twitter_kind, twitter_handle = excluded.twitter_handle, tweet_id = excluded.tweet_id,
+           telegram = excluded.telegram, website = excluded.website, website_key = excluded.website_key, image = excluded.image,
+           image_key = excluded.image_key, description = excluded.description`,
+      )
+      .run({
+        mint: m.mint,
+        createdAt: m.createdAt,
+        fetchedAt: m.fetchedAt,
+        ok: m.ok ? 1 : 0,
+        twitterUrl: m.twitter?.url ?? null,
+        twitterKind: m.twitter?.kind ?? null,
+        twitterHandle: m.twitter?.handle ?? null,
+        tweetId: m.twitter?.tweetId ?? null,
+        telegram: m.telegram,
+        website: m.website,
+        websiteKey: m.websiteKey,
+        image: m.image,
+        imageKey: m.imageKey,
+        description: m.description,
+      });
+  }
+
+  findSocialReuse(mint: string, createdAt: number, keys: SocialKeys): { reuse: SocialReuse[]; sameTweetCount: number } {
+    const older = (condition: string, value: string) =>
+      this.db
+        .prepare(
+          `SELECT m.mint AS mint, COALESCE(f.symbol, t.symbol) AS symbol, m.created_at AS createdAt
+           FROM token_meta m LEFT JOIN feed_tokens f ON f.mint = m.mint LEFT JOIN tokens t ON t.mint = m.mint
+           WHERE m.ok = 1 AND m.mint != ? AND m.created_at <= ? AND ${condition}
+           ORDER BY m.created_at DESC LIMIT ?`,
+        )
+        .all(mint, createdAt - REUSE_MIN_AGE_SEC, value, REUSE_EXAMPLES) as SocialReuse["tokens"];
+    const reuse: SocialReuse[] = [];
+    const add = (kind: SocialReuse["kind"], value: string | null, condition: string) => {
+      if (!value) return;
+      const tokens = older(condition, value);
+      if (tokens.length) reuse.push({ kind, value, tokens });
+    };
+    add("twitter", keys.twitterHandle, "m.twitter_kind = 'account' AND m.twitter_handle = ?");
+    add("website", keys.websiteKey, "m.website_key = ?");
+    add("image", keys.imageKey, "m.image_key = ?");
+    const sameTweetCount = keys.tweetId
+      ? (this.db.prepare("SELECT COUNT(*) AS n FROM token_meta WHERE ok = 1 AND tweet_id = ? AND mint != ?").get(keys.tweetId, mint) as { n: number }).n
+      : 0;
+    return { reuse, sameTweetCount };
+  }
+
+  pruneTokenMeta(before: number): number {
+    return this.db
+      .prepare("DELETE FROM token_meta WHERE created_at < ? AND mint NOT IN (SELECT mint FROM trace_results)")
+      .run(before).changes;
+  }
+
+  riskyWallets(now: number): RiskyWallets {
+    return riskyWallets(this.db, now);
   }
 
   walletView(address: string): WalletView {
@@ -401,8 +531,16 @@ export class SqliteStore implements Store {
       current = w.funder;
     }
 
+    const profileRow = this.db
+      .prepare(
+        `SELECT json_extract(tr.json, '$.devProfile') AS profile FROM trace_results tr JOIN tokens t ON t.mint = tr.mint
+         WHERE t.deployer = ? ORDER BY tr.finished_at DESC LIMIT 1`,
+      )
+      .get(address) as { profile: string | null } | undefined;
+    const profile = profileRow?.profile ? (JSON.parse(profileRow.profile) as DevProfile) : null;
+
     const known = chain.length > 0 || deployed.length > 0 || appearances.length > 0;
-    return { address, known, chain, deployed, appearances };
+    return { address, known, chain, deployed, appearances, profile };
   }
 }
 

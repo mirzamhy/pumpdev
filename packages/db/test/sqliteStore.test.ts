@@ -181,7 +181,7 @@ describe("SqliteStore walletView", () => {
   });
 
   it("reports unknown wallets", () => {
-    expect(store.walletView("NEW")).toEqual({ address: "NEW", known: false, chain: [], deployed: [], appearances: [] });
+    expect(store.walletView("NEW")).toEqual({ address: "NEW", known: false, chain: [], deployed: [], appearances: [], profile: null });
   });
 });
 

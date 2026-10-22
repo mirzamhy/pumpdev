@@ -89,6 +89,27 @@ CREATE TABLE IF NOT EXISTS feed_tokens (
 CREATE INDEX IF NOT EXISTS feed_tokens_created ON feed_tokens(created_at);
 CREATE INDEX IF NOT EXISTS feed_tokens_symbol ON feed_tokens(symbol_key, created_at);
 CREATE INDEX IF NOT EXISTS feed_tokens_progress ON feed_tokens(progress_pct);
+CREATE TABLE IF NOT EXISTS token_meta (
+  mint TEXT PRIMARY KEY,
+  created_at INTEGER NOT NULL,
+  fetched_at INTEGER NOT NULL,
+  ok INTEGER NOT NULL,
+  twitter_url TEXT,
+  twitter_kind TEXT,
+  twitter_handle TEXT,
+  tweet_id TEXT,
+  telegram TEXT,
+  website TEXT,
+  website_key TEXT,
+  image TEXT,
+  image_key TEXT,
+  description TEXT
+);
+CREATE INDEX IF NOT EXISTS token_meta_handle ON token_meta(twitter_handle);
+CREATE INDEX IF NOT EXISTS token_meta_website ON token_meta(website_key);
+CREATE INDEX IF NOT EXISTS token_meta_image ON token_meta(image_key);
+CREATE INDEX IF NOT EXISTS token_meta_tweet ON token_meta(tweet_id);
+CREATE INDEX IF NOT EXISTS token_meta_created ON token_meta(created_at);
 `;
 
 /** Columns added after the first release; applied to databases created by older versions. */

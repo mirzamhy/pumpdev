@@ -8,6 +8,7 @@ import { FunderGraph } from "../components/FunderGraph";
 import { FunderTimeline } from "../components/FunderTimeline";
 import { HoldersCard } from "../components/HoldersCard";
 import { NodeDetail } from "../components/NodeDetail";
+import { PriceChart } from "../components/PriceChart";
 import { RiskCard } from "../components/RiskCard";
 import { SocialsCard } from "../components/SocialsCard";
 import { StepProgress } from "../components/StepProgress";
@@ -55,6 +56,7 @@ export function TokenPage() {
       )}
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
         <div className="min-w-0 space-y-6">
+          <PriceChart mint={mint} />
           <Card title="Funding chain">
             {view.nodes.length === 0 ? (
               <Skeleton className="h-40" />

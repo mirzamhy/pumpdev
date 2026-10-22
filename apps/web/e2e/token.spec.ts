@@ -3,6 +3,7 @@ import { MINT, sampleResult } from "./fixtures";
 
 async function mockApi(page: Page) {
   await page.route("**/api/recent", (route) => route.fulfill({ json: [] }));
+  await page.route("https://api.geckoterminal.com/**", (route) => route.fulfill({ json: { data: [] } }));
   await page.route("**/api/trace", (route) => route.fulfill({ json: { cached: true, result: sampleResult } }));
 }
 

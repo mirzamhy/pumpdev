@@ -3,6 +3,7 @@ import { MINT, sampleResult, sampleRisky } from "./fixtures";
 
 async function mockTrace(page: Page, result = sampleResult) {
   await page.route("**/api/recent", (route) => route.fulfill({ json: [] }));
+  await page.route("https://api.geckoterminal.com/**", (route) => route.fulfill({ json: { data: [] } }));
   await page.route("**/api/trace", (route) => route.fulfill({ json: { cached: true, result } }));
 }
 
@@ -42,6 +43,7 @@ test("never links non-web socials", async ({ page }) => {
 test("risky wallets page lists patterns with neutral copy", async ({ page }) => {
   await page.route("**/api/risky", (route) => route.fulfill({ json: sampleRisky }));
   await page.route("**/api/recent", (route) => route.fulfill({ json: [] }));
+  await page.route("https://api.geckoterminal.com/**", (route) => route.fulfill({ json: { data: [] } }));
   await page.goto("/");
   await page.getByRole("link", { name: "Risky wallets" }).click();
   await expect(page.getByRole("heading", { name: "Risky wallets" })).toBeVisible();
@@ -60,4 +62,30 @@ test("risky wallets page fits a phone", async ({ page }) => {
   await page.goto("/risky");
   await expect(page.getByText("Launched 40 tokens")).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth)).toBe(false);
+});
+
+test("embeds the most liquid pool's chart, or explains when there is none", async ({ page }) => {
+  await mockTrace(page);
+  await page.route("https://api.geckoterminal.com/**", (route) =>
+    route.fulfill({
+      json: {
+        data: [
+          { attributes: { address: "GcuC4NcSyfQeiwEeHZWCdpyyE2E7t1PJ16c7xZQnJUtm", reserve_in_usd: "0.0" } },
+          { attributes: { address: "5CdxX19Gd3fafA5tNJGK6XqNAb7yERRDRVDmEJJWibdy", reserve_in_usd: "2283.8" } },
+          { attributes: { address: "javascript:alert(1)", reserve_in_usd: "999999" } },
+        ],
+      },
+    }),
+  );
+  await page.route("https://www.geckoterminal.com/**", (route) => route.fulfill({ body: "<html><body>chart</body></html>", contentType: "text/html" }));
+  await page.goto(`/token/${MINT}`);
+  const frame = page.getByTitle("Market cap chart");
+  await expect(frame).toHaveAttribute("src", /geckoterminal\.com\/solana\/pools\/5CdxX19Gd3fafA5tNJGK6XqNAb7yERRDRVDmEJJWibdy\?embed=1/);
+  await expect(page.getByRole("link", { name: "DexScreener ↗" })).toHaveAttribute("href", `https://dexscreener.com/solana/${MINT}`);
+});
+
+test("says when GeckoTerminal has not listed the token yet", async ({ page }) => {
+  await mockTrace(page);
+  await page.goto(`/token/${MINT}`);
+  await expect(page.getByText("GeckoTerminal has not listed this token yet.", { exact: false })).toBeVisible();
 });

@@ -1,4 +1,4 @@
-import type { FeedItem, FeedResponse, TraceResult } from "@pumpfun/shared";
+import type { FeedItem, FeedResponse, RiskyWallets, TraceResult } from "@pumpfun/shared";
 
 export const MINT = "9BB6NFEcjBCtnNLFko2FqVQBq8HHM13kCyYcdQbgpump";
 const DEV = "7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU";
@@ -61,6 +61,29 @@ export const sampleResult: TraceResult = {
     transfers: [{ to: FUNDER, amount: "100000000", signature: "move" }],
     partial: false,
   },
+  devProfile: {
+    launches: 6,
+    dead: 4,
+    migrated: 0,
+    launchesPerDay: 3,
+    soldObserved: 5,
+    medianMinutesToSell: 7,
+    fastSells: 3,
+    feeClaims: 2,
+    feeClaimedSol: 0.42,
+    partial: true,
+  },
+  socials: {
+    available: true,
+    reason: null,
+    twitter: { url: "https://x.com/elonmusk/status/123", kind: "tweet", handle: "elonmusk", tweetId: "123" },
+    telegram: null,
+    website: "https://testcoin.example",
+    image: null,
+    description: "The test coin.",
+    reuse: [{ kind: "website", value: "testcoin.example", tokens: [{ mint: SIB_A, symbol: "OLDTEST", createdAt: 1_759_000_000 }] }],
+    sameTweetCount: 4,
+  },
   crosslinks: [],
   score: {
     score: 50,
@@ -91,6 +114,7 @@ const feedItem = (over: Partial<FeedItem>): FeedItem => ({
   migratedAt: null,
   isMayhemMode: false,
   copycatCount: 0,
+  recycledSocials: false,
   autoTraced: false,
   trace: { state: "none", score: null, level: null },
   ...over,
@@ -99,8 +123,16 @@ const feedItem = (over: Partial<FeedItem>): FeedItem => ({
 export const sampleFeed: FeedResponse = {
   items: [
     feedItem({ autoTraced: true, trace: { state: "done", score: 82, level: "high" } }),
-    feedItem({ mint: FUNDER, name: "Queued Coin", symbol: "QUEUE", progressPct: 41, trace: { state: "queued", score: null, level: null } }),
+    feedItem({ mint: FUNDER, name: "Queued Coin", symbol: "QUEUE", progressPct: 41, recycledSocials: true, trace: { state: "queued", score: null, level: null } }),
     feedItem({ mint: BUNDLER, name: "Korean Coin", symbol: "KOREAN", copycatCount: 3, marketCapSol: 28, progressPct: 1, peakProgressPct: 60 }),
   ],
   stats: { seenLastHour: 1200, tracedLastHour: 12, highRiskShare: 0.5, connected: true },
+};
+
+export const sampleRisky: RiskyWallets = {
+  serialDevs: [{ wallet: DEV, dead: 12, total: 15, lastAt: Math.floor(Date.now() / 1000) - 3600 }],
+  funders: [{ wallet: FUNDER, deadLaunches: 7, devs: 3 }],
+  snipers: [],
+  launchers: [{ wallet: BUNDLER, launches: 40, lastAt: Math.floor(Date.now() / 1000) - 60 }],
+  generatedAt: Math.floor(Date.now() / 1000),
 };

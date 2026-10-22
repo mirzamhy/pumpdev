@@ -2,6 +2,7 @@ import type { StepName, StepState } from "@pumpfun/shared";
 
 const STEPS: { id: StepName; label: string }[] = [
   { id: "token", label: "Token" },
+  { id: "socials", label: "Socials" },
   { id: "funders", label: "Funding chain" },
   { id: "devActivity", label: "Dev activity" },
   { id: "holders", label: "Holders" },

@@ -1,6 +1,7 @@
 import { Link, useNavigate, useParams } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { shortAddress } from "@pumpfun/shared";
+import { DevHabitsCard } from "../components/DevHabitsCard";
 import { FunderTimeline } from "../components/FunderTimeline";
 import { Badge, Card, CopyButton, Skeleton } from "../components/ui";
 import { fetchWallet } from "../lib/api";
@@ -42,6 +43,7 @@ export function WalletPage() {
             )}
           </Card>
           <div className="space-y-6">
+            {wallet.data.profile && <DevHabitsCard profile={wallet.data.profile} />}
             <Card title="Tokens launched">
               {wallet.data.deployed.length === 0 ? (
                 <p className="text-sm text-muted">None known.</p>

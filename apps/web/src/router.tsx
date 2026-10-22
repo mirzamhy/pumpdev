@@ -15,13 +15,18 @@ const screenerRoute = createRoute({
   path: "/screener",
   component: lazyRouteComponent(() => import("./pages/ScreenerPage"), "ScreenerPage"),
 });
+const riskyRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/risky",
+  component: lazyRouteComponent(() => import("./pages/RiskyPage"), "RiskyPage"),
+});
 const walletRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/wallet/$address",
   component: lazyRouteComponent(() => import("./pages/WalletPage"), "WalletPage"),
 });
 
-export const router = createRouter({ routeTree: rootRoute.addChildren([indexRoute, screenerRoute, tokenRoute, walletRoute]) });
+export const router = createRouter({ routeTree: rootRoute.addChildren([indexRoute, screenerRoute, riskyRoute, tokenRoute, walletRoute]) });
 
 declare module "@tanstack/react-router" {
   interface Register {

@@ -24,6 +24,7 @@ test("lists live tokens with scores, trace state and flags", async ({ page }) =>
   await expect(rows.nth(0)).toContainText("82");
   await expect(rows.nth(0)).toContainText("auto");
   await expect(rows.nth(1)).toContainText("queued");
+  await expect(rows.nth(1)).toContainText("recycled");
   await expect(rows.nth(2)).toContainText("copycat ×3");
   await expect(rows.nth(2)).toContainText("dumped");
   await expect(rows.nth(2)).toContainText("–");

@@ -1,4 +1,4 @@
-import type { FeedResponse, FeedTab, RecentTrace, TraceEvent, TraceResult, WalletView } from "@pumpfun/shared";
+import type { FeedResponse, FeedTab, RecentTrace, RiskyWallets, TraceEvent, TraceResult, WalletView } from "@pumpfun/shared";
 
 export type StartTraceResponse = { cached: true; result: TraceResult } | { jobId: string };
 
@@ -41,4 +41,8 @@ export async function fetchWallet(address: string): Promise<WalletView> {
 
 export async function fetchFeed(tab: FeedTab, hideHigh: boolean): Promise<FeedResponse> {
   return json(await fetch(`/api/feed?tab=${tab}&hideHigh=${hideHigh ? 1 : 0}&limit=100`));
+}
+
+export async function fetchRisky(): Promise<RiskyWallets> {
+  return json(await fetch("/api/risky"));
 }

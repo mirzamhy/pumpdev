@@ -1,6 +1,7 @@
 import type {
   ChainNode,
   Crosslink,
+  DevProfile,
   DevStatus,
   DevToken,
   HolderAnalysis,
@@ -8,6 +9,7 @@ import type {
   StepName,
   StepState,
   TokenInfo,
+  TokenSocials,
   TraceEvent,
   TraceResult,
 } from "@pumpfun/shared";
@@ -18,6 +20,8 @@ export interface TraceView {
   devHistory: DevToken[] | null;
   devHistoryPartial: boolean;
   devStatus: DevStatus | null;
+  devProfile: DevProfile | null;
+  socials: TokenSocials | null;
   holders: HolderAnalysis | null;
   crosslinks: Crosslink[] | null;
   score: RiskScore | null;
@@ -33,6 +37,8 @@ export const emptyView: TraceView = {
   devHistory: null,
   devHistoryPartial: false,
   devStatus: null,
+  devProfile: null,
+  socials: null,
   holders: null,
   crosslinks: null,
   score: null,
@@ -59,6 +65,10 @@ export function applyEvent(v: TraceView, e: TraceEvent): TraceView {
       return { ...v, devHistory: e.data.tokens, devHistoryPartial: e.data.partial };
     case "devStatus":
       return { ...v, devStatus: e.data };
+    case "devProfile":
+      return { ...v, devProfile: e.data };
+    case "socials":
+      return { ...v, socials: e.data };
     case "holders":
       return { ...v, holders: e.data };
     case "crosslinks":
@@ -79,10 +89,13 @@ export function viewFromResult(r: TraceResult): TraceView {
     devHistory: r.devHistory,
     devHistoryPartial: r.devHistoryPartial,
     devStatus: r.devStatus,
+    // Results stored before these existed have neither field.
+    devProfile: r.devProfile ?? null,
+    socials: r.socials ?? null,
     holders: r.holders,
     crosslinks: r.crosslinks,
     score: r.score,
-    steps: { token: "done", funders: "done", devActivity: "done", holders: "done", crosslinks: "done", score: "done" },
+    steps: { token: "done", socials: "done", funders: "done", devActivity: "done", holders: "done", crosslinks: "done", score: "done" },
     done: true,
     partial: r.partial,
     error: null,

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link, useParams } from "@tanstack/react-router";
 import { CrosslinksList } from "../components/CrosslinksList";
+import { DevHabitsCard } from "../components/DevHabitsCard";
 import { DevHistoryTable } from "../components/DevHistoryTable";
 import { DevStatusCard } from "../components/DevStatusCard";
 import { FunderGraph } from "../components/FunderGraph";
@@ -8,6 +9,7 @@ import { FunderTimeline } from "../components/FunderTimeline";
 import { HoldersCard } from "../components/HoldersCard";
 import { NodeDetail } from "../components/NodeDetail";
 import { RiskCard } from "../components/RiskCard";
+import { SocialsCard } from "../components/SocialsCard";
 import { StepProgress } from "../components/StepProgress";
 import { TokenHeader } from "../components/TokenHeader";
 import { Card, Skeleton } from "../components/ui";
@@ -41,7 +43,7 @@ export function TokenPage() {
 
   return (
     <div className="space-y-6">
-      <TokenHeader token={view.token} mint={mint} />
+      <TokenHeader token={view.token} mint={mint} image={view.socials?.image ?? null} />
       <StepProgress steps={view.steps} done={view.done} />
       {view.error && (
         <div role="alert" className="flex flex-wrap items-center gap-3 text-sm text-danger">
@@ -69,7 +71,9 @@ export function TokenPage() {
         </div>
         <div className="space-y-6">
           <RiskCard score={view.score} done={view.done} />
+          <SocialsCard socials={view.socials} loading={loading} />
           <DevStatusCard status={view.devStatus} loading={loading} />
+          <DevHabitsCard profile={view.devProfile} loading={loading} />
           <CrosslinksList links={view.crosslinks} loading={loading} />
         </div>
       </div>

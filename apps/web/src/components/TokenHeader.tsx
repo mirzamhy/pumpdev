@@ -1,17 +1,10 @@
-import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
 import { shortAddress, type TokenInfo } from "@pumpfun/shared";
 import { Badge, CopyButton, Skeleton } from "./ui";
 
-const toHttp = (uri: string) => (uri.startsWith("ipfs://") ? `https://ipfs.io/ipfs/${uri.slice(7)}` : uri);
-
-export function TokenHeader({ token, mint }: { token: TokenInfo | null; mint: string }) {
-  const meta = useQuery({
-    queryKey: ["token-meta", token?.uri],
-    enabled: Boolean(token?.uri),
-    queryFn: async () => (await (await fetch(toHttp(token!.uri!))).json()) as { image?: string },
-    staleTime: Number.POSITIVE_INFINITY,
-    retry: 0,
-  });
+/** `image` comes from the server's socials step (already on a working gateway). */
+export function TokenHeader({ token, mint, image }: { token: TokenInfo | null; mint: string; image: string | null }) {
+  const [broken, setBroken] = useState(false);
 
   if (!token) {
     return (
@@ -25,11 +18,10 @@ export function TokenHeader({ token, mint }: { token: TokenInfo | null; mint: st
     );
   }
 
-  const image = meta.data?.image ? toHttp(meta.data.image) : null;
   return (
     <div className="flex flex-wrap items-center gap-4">
-      {image ? (
-        <img src={image} alt="" className="size-14 rounded-xl object-cover" />
+      {image && !broken ? (
+        <img src={image} alt="" referrerPolicy="no-referrer" onError={() => setBroken(true)} className="size-14 rounded-xl object-cover" />
       ) : (
         <div className="grid size-14 place-items-center rounded-xl bg-surface-2 font-mono text-muted">{(token.symbol ?? "?").slice(0, 2)}</div>
       )}

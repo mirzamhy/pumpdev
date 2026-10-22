@@ -54,7 +54,7 @@ describe("traceReducer", () => {
     } as unknown as TraceResult;
     const v = traceReducer(emptyView, { kind: "result", result });
     expect(v).toMatchObject({ done: true, nodes: [node("A")], score: { score: 10 } });
-    expect(v.steps).toEqual({ token: "done", funders: "done", devActivity: "done", holders: "done", crosslinks: "done", score: "done" });
+    expect(v.steps).toEqual({ token: "done", socials: "done", funders: "done", devActivity: "done", holders: "done", crosslinks: "done", score: "done" });
     expect(viewFromResult(result)).toEqual(v);
   });
 

@@ -12,6 +12,9 @@ export function Layout() {
             <Link to="/screener" className="text-muted hover:text-text [&.active]:text-text">
               Screener
             </Link>
+            <Link to="/risky" className="text-muted hover:text-text [&.active]:text-text">
+              Risky wallets
+            </Link>
           </nav>
         </div>
       </header>

@@ -27,6 +27,11 @@ function Flags({ item }: { item: FeedItem }) {
           copycat ×{item.copycatCount}
         </Badge>
       )}
+      {item.recycledSocials && (
+        <Badge tone="warn" title="Its X account, website or image was already used by a token launched at least an hour earlier">
+          recycled
+        </Badge>
+      )}
       {item.isMayhemMode && <Badge title="Mayhem mode coin (Token-2022, traded by pump.fun's agent)">mayhem</Badge>}
       {item.migratedAt !== null || item.complete ? <Badge tone="safe">migrated</Badge> : null}
       {item.autoTraced && <Badge title="Traced automatically because the curve passed the traction threshold">auto</Badge>}

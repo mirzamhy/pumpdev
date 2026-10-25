@@ -1,7 +1,7 @@
 import Fastify, { type FastifyInstance } from "fastify";
 import rateLimit from "@fastify/rate-limit";
 import type { SqliteStore } from "@pumpfun/db";
-import { FeedQuery, TraceRequest, type FeedItem, type FeedResponse, type RiskyWallets, type TraceEvent } from "@pumpfun/shared";
+import { FeedQuery, TraceRequest, type FeedItem, type FeedResponse, type QuickScore, type RiskyWallets, type TraceEvent } from "@pumpfun/shared";
 import type { ApiConfig } from "./config";
 import type { JobManager } from "./jobs";
 
@@ -92,6 +92,13 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
     const found = store.getResult(req.params.mint);
     if (!found) return reply.code(404).send({ error: "Not traced yet" });
     return found.result;
+  });
+
+  // Instant score for a token the live feed saw; the token page shows it until the full trace finishes.
+  app.get<{ Params: { mint: string } }>("/api/quick/:mint", { logLevel: "warn" }, async (req, reply): Promise<QuickScore | void> => {
+    const row = store.feedItem(req.params.mint, now());
+    if (!row) return reply.code(404).send({ error: "Not in the live feed" });
+    return row.quick;
   });
 
   app.get<{ Params: { address: string } }>("/api/wallet/:address", async (req) => store.walletView(req.params.address));

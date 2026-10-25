@@ -40,6 +40,9 @@ const MAX_AUTO_BACKLOG = 2;
 /** `virtual - real` token reserves, constant for every pump curve (279.9M tokens, raw units). */
 const VIRTUAL_TOKEN_OFFSET = 279_900_000_000_000;
 
+/** Share of the 1B total supply that the curve sells (793.1M). */
+const SUPPLY_ON_CURVE = Number(INITIAL_REAL_TOKEN_RESERVES) / 1e15;
+
 /** Progress implied by the virtual token reserves PumpPortal reports (whole tokens). */
 export function progressFromVirtualTokens(vTokens: number | null): number {
   if (vTokens === null) return 0;
@@ -91,6 +94,7 @@ export class FeedService {
         createSignature: e.signature,
         createdAt,
         initialBuySol: e.initialBuySol,
+        devBuyPct: e.vTokens === null ? null : progressFromVirtualTokens(e.vTokens) * SUPPLY_ON_CURVE,
         isMayhemMode: e.isMayhemMode,
         marketCapSol: e.marketCapSol,
         progressPct: progressFromVirtualTokens(e.vTokens),

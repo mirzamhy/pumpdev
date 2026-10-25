@@ -1,21 +1,22 @@
 import Database from "better-sqlite3";
-import type { ParsedTx, RepeatSniper, SocialKeys, Store, TaintedFunder, TokenMetaRecord, WalletRecord } from "@pumpfun/core";
-import type {
-  ChainNode,
-  Crosslink,
-  DevProfile,
-  FeedStats,
-  FeedTab,
-  JobState,
-  RecentTrace,
-  RiskyWallets,
-  SocialReuse,
-  TraceEvent,
-  TraceResult,
-  TwitterKind,
-  WalletView,
+import { computeQuickScore, type ParsedTx, type RepeatSniper, type SocialKeys, type Store, type TaintedFunder, type TokenMetaRecord, type WalletRecord } from "@pumpfun/core";
+import {
+  curveDumped,
+  type ChainNode,
+  type Crosslink,
+  type DevProfile,
+  type FeedStats,
+  type FeedTab,
+  type JobState,
+  type RecentTrace,
+  type RiskyWallets,
+  type SocialReuse,
+  type TraceEvent,
+  type TraceResult,
+  type TwitterKind,
+  type WalletView,
 } from "@pumpfun/shared";
-import { rawToFeedRow, symbolKey, type FeedCurveUpdate, type FeedRow, type FeedRowRaw, type FeedTokenInput } from "./feed";
+import { rawToFeedRow, symbolKey, type FeedCurveUpdate, type FeedRow, type FeedRowBase, type FeedRowRaw, type FeedTokenInput } from "./feed";
 import { riskyWallets } from "./risky";
 import { COLUMN_MIGRATIONS, SCHEMA } from "./schema";
 
@@ -111,6 +112,17 @@ const RECYCLED_SQL = `EXISTS (
       OR (o.image_key = me.image_key AND ${shared("image_key")}))
   WHERE me.mint = f.mint AND me.ok = 1
 )`;
+
+/** Same rule as `curveDumped` in @pumpfun/shared, for SQL. */
+const DUMPED_SQL = "(complete = 0 AND peak_progress_pct >= 20 AND progress_pct <= peak_progress_pct * 0.4)";
+
+const FEED_COLUMNS = `f.mint, f.name, f.symbol, f.creator, f.created_at, f.market_cap_sol, f.progress_pct, f.peak_progress_pct, f.real_sol, f.initial_buy_sol, f.dev_buy_pct,
+           f.complete, f.migrated_at, f.mayhem, f.auto_traced_at,
+           CASE WHEN f.symbol_key IS NULL THEN 0 ELSE (
+             SELECT COUNT(*) FROM feed_tokens o WHERE o.symbol_key = f.symbol_key AND o.mint != f.mint AND o.created_at > @daySince
+           ) END AS copycat_count,
+           ${RECYCLED_SQL} AS recycled_socials,
+           tr.score AS score, json_extract(tr.json, '$.score.level') AS level, tr.finished_at AS traced_at`;
 
 const FEED_ORDER: Record<FeedTab, { where: string; order: string }> = {
   new: { where: "1 = 1", order: "f.created_at DESC" },
@@ -334,9 +346,9 @@ export class SqliteStore implements Store {
     const result = this.db
       .prepare(
         `INSERT OR IGNORE INTO feed_tokens (mint, name, symbol, symbol_key, uri, creator, bonding_curve, create_signature, created_at,
-           initial_buy_sol, mayhem, market_cap_sol, progress_pct, peak_progress_pct, real_sol)
+           initial_buy_sol, dev_buy_pct, mayhem, market_cap_sol, progress_pct, peak_progress_pct, real_sol)
          VALUES (@mint, @name, @symbol, @symbolKey, @uri, @creator, @bondingCurve, @createSignature, @createdAt,
-           @initialBuySol, @mayhem, @marketCapSol, @progressPct, @progressPct, @realSol)`,
+           @initialBuySol, @devBuyPct, @mayhem, @marketCapSol, @progressPct, @progressPct, @realSol)`,
       )
       .run({ ...t, isMayhemMode: null, symbolKey: symbolKey(t.symbol), mayhem: t.isMayhemMode ? 1 : 0 });
     return result.changes === 1;
@@ -392,21 +404,90 @@ export class SqliteStore implements Store {
   feed(opts: { tab: FeedTab; hideHigh: boolean; limit: number; now: number }): FeedRow[] {
     const { where, order } = FEED_ORDER[opts.tab];
     const hideHigh = opts.hideHigh ? "AND (tr.mint IS NULL OR json_extract(tr.json, '$.score.level') != 'high')" : "";
-    const rows = this.db
+    // Quick scores are computed after the query, so hiding high risk fetches extra rows to fill the page.
+    const fetchLimit = opts.hideHigh ? opts.limit * 2 : opts.limit;
+    const raw = this.db
       .prepare(
-        `SELECT f.mint, f.name, f.symbol, f.creator, f.created_at, f.market_cap_sol, f.progress_pct, f.peak_progress_pct, f.real_sol, f.initial_buy_sol,
-           f.complete, f.migrated_at, f.mayhem, f.auto_traced_at,
-           CASE WHEN f.symbol_key IS NULL THEN 0 ELSE (
-             SELECT COUNT(*) FROM feed_tokens o WHERE o.symbol_key = f.symbol_key AND o.mint != f.mint AND o.created_at > @daySince
-           ) END AS copycat_count,
-           ${RECYCLED_SQL} AS recycled_socials,
-           tr.score AS score, json_extract(tr.json, '$.score.level') AS level, tr.finished_at AS traced_at
+        `SELECT ${FEED_COLUMNS}
          FROM feed_tokens f LEFT JOIN trace_results tr ON tr.mint = f.mint
          WHERE ${where} ${hideHigh}
          ORDER BY ${order} LIMIT @limit`,
       )
-      .all({ daySince: opts.now - DAY, hotSince: opts.now - HOT_MAX_AGE_SEC, limit: opts.limit }) as FeedRowRaw[];
-    return rows.map(rawToFeedRow);
+      .all({ daySince: opts.now - DAY, hotSince: opts.now - HOT_MAX_AGE_SEC, limit: fetchLimit }) as FeedRowRaw[];
+    const rows = this.withQuick(raw.map(rawToFeedRow), opts.now);
+    const shown = opts.hideHigh ? rows.filter((r) => r.score !== null || r.quick.level !== "high") : rows;
+    return shown.slice(0, opts.limit);
+  }
+
+  /** One feed token with its quick score, for the token page while a trace runs; null when the feed never saw it. */
+  feedItem(mint: string, now: number): FeedRow | null {
+    const raw = this.db
+      .prepare(`SELECT ${FEED_COLUMNS} FROM feed_tokens f LEFT JOIN trace_results tr ON tr.mint = f.mint WHERE f.mint = @mint`)
+      .get({ mint, daySince: now - DAY }) as FeedRowRaw | undefined;
+    return raw ? this.withQuick([rawToFeedRow(raw)], now)[0]! : null;
+  }
+
+  /** Adds the instant score from what earlier traces and the live feed already know about each creator. */
+  private withQuick(rows: FeedRowBase[], now: number): FeedRow[] {
+    const creators = [...new Set(rows.map((r) => r.creator))];
+    if (creators.length === 0) return [];
+    const ph = placeholders(creators.length);
+    const dead = new Map(
+      (
+        this.db
+          .prepare(`SELECT deployer AS wallet, COUNT(*) AS n FROM dev_tokens WHERE deployer IN (${ph}) AND status = 'dead_dev_exited' GROUP BY deployer`)
+          .all(...creators) as { wallet: string; n: number }[]
+      ).map((r) => [r.wallet, r.n]),
+    );
+    const launches = this.db
+      .prepare(
+        `SELECT creator, mint, ${DUMPED_SQL} AS dumped FROM feed_tokens WHERE creator IN (${ph}) AND created_at > ?`,
+      )
+      .all(...creators, now - DAY) as { creator: string; mint: string; dumped: number }[];
+    const byCreator = new Map<string, { mint: string; dumped: boolean }[]>();
+    for (const l of launches) byCreator.set(l.creator, [...(byCreator.get(l.creator) ?? []), { mint: l.mint, dumped: l.dumped === 1 }]);
+
+    const funders = this.db
+      .prepare(`SELECT address, funder FROM wallets WHERE address IN (${ph}) AND funder IS NOT NULL`)
+      .all(...creators) as { address: string; funder: string }[];
+    const funderOf = new Map(funders.filter((f) => f.funder !== f.address).map((f) => [f.address, f.funder]));
+    const tainted = new Map(this.findTaintedFunders([...new Set(funderOf.values())], "").map((t) => [t.wallet, t.deadCount]));
+
+    const profiles = new Map<string, { fastSells: number; soldObserved: number }>();
+    const profileRows = this.db
+      .prepare(
+        `SELECT t.deployer AS wallet, json_extract(tr.json, '$.devProfile.fastSells') AS fastSells,
+           json_extract(tr.json, '$.devProfile.soldObserved') AS soldObserved
+         FROM trace_results tr JOIN tokens t ON t.mint = tr.mint
+         WHERE t.deployer IN (${ph}) AND json_extract(tr.json, '$.devProfile') IS NOT NULL
+         ORDER BY tr.finished_at DESC`,
+      )
+      .all(...creators) as { wallet: string; fastSells: number | null; soldObserved: number | null }[];
+    for (const p of profileRows) {
+      if (!profiles.has(p.wallet)) profiles.set(p.wallet, { fastSells: p.fastSells ?? 0, soldObserved: p.soldObserved ?? 0 });
+    }
+
+    return rows.map(({ devBuyPct, ...row }) => {
+      const others = (byCreator.get(row.creator) ?? []).filter((l) => l.mint !== row.mint);
+      const funder = funderOf.get(row.creator);
+      const funderDead = funder ? (tainted.get(funder) ?? 0) : 0;
+      const profile = profiles.get(row.creator);
+      const quick = computeQuickScore({
+        copycatCount: row.copycatCount,
+        recycledSocials: row.recycledSocials,
+        dumped: curveDumped(row),
+        peakProgressPct: row.peakProgressPct,
+        progressPct: row.progressPct,
+        devBuyPct,
+        creatorDeadLaunches: dead.get(row.creator) ?? 0,
+        creatorLaunches24h: others.length,
+        creatorDumped24h: others.filter((l) => l.dumped).length,
+        taintedFunder: funder && funderDead > 0 ? { wallet: funder, deadCount: funderDead } : null,
+        fastSells: profile?.fastSells ?? 0,
+        soldObserved: profile?.soldObserved ?? 0,
+      });
+      return { ...row, quick };
+    });
   }
 
   feedStats(now: number): Omit<FeedStats, "connected"> {

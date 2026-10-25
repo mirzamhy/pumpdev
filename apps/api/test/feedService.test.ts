@@ -81,6 +81,8 @@ describe("FeedService", () => {
       expect.objectContaining({ mint: addr(1), name: "Token 1", creator: addr(101), createdAt: NOW, marketCapSol: 30, initialBuySol: 1 }),
     ]);
     expect(feed()[0]!.progressPct).toBeCloseTo(50, 5);
+    // Half the curve is 396.55M tokens, 39.7% of the 1B supply.
+    expect(feed()[0]!.quick.factors.find((f) => f.id === "bigDevBuy")?.reason).toContain("39.7% of supply");
     expect(store.findCreateSignature(addr(1))).toBe("sig1");
   });
 

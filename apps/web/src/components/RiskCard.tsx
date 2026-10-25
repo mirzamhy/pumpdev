@@ -1,8 +1,38 @@
-import type { RiskLevel, RiskScore } from "@pumpfun/shared";
+import type { QuickScore, RiskFactor, RiskLevel, RiskScore } from "@pumpfun/shared";
 import { levelTone, toneText } from "../lib/risk";
 import { Card, Skeleton } from "./ui";
 
-export function RiskCard({ score, done }: { score: RiskScore | null; done: boolean }) {
+function FactorList({ factors }: { factors: RiskFactor[] }) {
+  return (
+    <ul className="mt-4 space-y-2">
+      {factors.map((f) => (
+        <li key={f.id} className="flex gap-3 text-sm">
+          <span className="mt-0.5 h-fit shrink-0 rounded bg-danger/15 px-1.5 text-xs font-semibold tabular-nums text-danger">+{f.points}</span>
+          <span>{f.reason}</span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+export function RiskCard({ score, done, quick = null }: { score: RiskScore | null; done: boolean; quick?: QuickScore | null }) {
+  if (!score && quick && !done) {
+    const tone = quick.level === "low" ? "text-muted" : toneText[levelTone[quick.level]];
+    return (
+      <Card title="Risk · quick check">
+        <div className="flex items-end gap-3">
+          <span className={`text-5xl font-semibold tabular-nums ${tone}`}>~{quick.score}</span>
+          <span className="pb-2 text-sm text-muted">/ 100 · from the dev, socials and curve</span>
+        </div>
+        {quick.factors.length > 0 ? (
+          <FactorList factors={quick.factors} />
+        ) : (
+          <p className="mt-4 text-sm text-muted">No known red flag yet.</p>
+        )}
+        <p className="mt-3 text-xs text-muted">Holders and bundles are not checked yet. The full score replaces this once the trace finishes.</p>
+      </Card>
+    );
+  }
   if (!score) {
     return (
       <Card title="Risk">
@@ -19,14 +49,7 @@ export function RiskCard({ score, done }: { score: RiskScore | null; done: boole
       </div>
       {score.incomplete && <p className="mt-2 text-xs text-warn">Some data could not be fetched, so the score may be understated.</p>}
       {score.factors.length > 0 ? (
-        <ul className="mt-4 space-y-2">
-          {score.factors.map((f) => (
-            <li key={f.id} className="flex gap-3 text-sm">
-              <span className="mt-0.5 h-fit shrink-0 rounded bg-danger/15 px-1.5 text-xs font-semibold tabular-nums text-danger">+{f.points}</span>
-              <span>{f.reason}</span>
-            </li>
-          ))}
-        </ul>
+        <FactorList factors={score.factors} />
       ) : (
         <p className="mt-4 text-sm text-muted">None of our checks found a red flag. That is not a guarantee.</p>
       )}

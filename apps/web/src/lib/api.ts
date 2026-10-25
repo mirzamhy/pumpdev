@@ -1,4 +1,4 @@
-import type { FeedResponse, FeedTab, RecentTrace, RiskyWallets, TraceEvent, TraceResult, WalletView } from "@pumpfun/shared";
+import type { FeedResponse, FeedTab, QuickScore, RecentTrace, RiskyWallets, TraceEvent, TraceResult, WalletView } from "@pumpfun/shared";
 
 export type StartTraceResponse = { cached: true; result: TraceResult } | { jobId: string };
 
@@ -41,6 +41,13 @@ export async function fetchWallet(address: string): Promise<WalletView> {
 
 export async function fetchFeed(tab: FeedTab, hideHigh: boolean): Promise<FeedResponse> {
   return json(await fetch(`/api/feed?tab=${tab}&hideHigh=${hideHigh ? 1 : 0}&limit=100`));
+}
+
+/** Null when the live feed never saw the token. */
+export async function fetchQuick(mint: string): Promise<QuickScore | null> {
+  const res = await fetch(`/api/quick/${encodeURIComponent(mint)}`);
+  if (res.status === 404) return null;
+  return json(res);
 }
 
 export async function fetchRisky(): Promise<RiskyWallets> {

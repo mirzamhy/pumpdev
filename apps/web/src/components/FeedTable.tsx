@@ -2,6 +2,7 @@ import { Link, useNavigate } from "@tanstack/react-router";
 import { curveDumped, shortAddress, type FeedItem } from "@pumpfun/shared";
 import { formatMcap, shortAge } from "../lib/format";
 import { useMediaQuery } from "../lib/useMediaQuery";
+import { levelTone, toneText } from "../lib/risk";
 import { ScorePill } from "./RiskCard";
 import { Badge } from "./ui";
 
@@ -56,9 +57,21 @@ function Risk({ item }: { item: FeedItem }) {
   if (state === "running") return <span className="text-xs text-accent">tracing…</span>;
   if (state === "queued") return <span className="text-xs text-muted">queued</span>;
   if (score !== null && level !== null) return <ScorePill score={score} level={level} />;
+  return <QuickPill item={item} />;
+}
+
+/** Instant score for untraced tokens, marked with ~ so it never reads as a full trace. */
+function QuickPill({ item }: { item: FeedItem }) {
+  const { score, level, factors } = item.quick;
+  const title =
+    factors.length > 0
+      ? `Quick check, not a full trace:${factors.map((f) => `\n+${f.points} ${f.reason}`).join("")}`
+      : "Quick check found no known red flag. That is not a full trace; open the token to run one.";
+  // A clean quick check stays grey: it has not looked at holders or bundles, so it must not look "safe".
+  const tone = level === "low" ? "text-muted" : toneText[levelTone[level]];
   return (
-    <span className="text-xs text-muted" title="Not traced yet. Open the token to trace it.">
-      –
+    <span className={`font-mono text-sm tabular-nums ${tone}`} title={title} aria-label={`Quick score ${score}`}>
+      ~{score}
     </span>
   );
 }

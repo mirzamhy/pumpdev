@@ -29,6 +29,7 @@ const feedToken = (mint: string, over: Partial<FeedTokenInput> = {}): FeedTokenI
   createSignature: null,
   createdAt: NOW - 60,
   initialBuySol: null,
+  devBuyPct: null,
   isMayhemMode: false,
   marketCapSol: null,
   progressPct: 0,
@@ -198,5 +199,58 @@ describe("risky wallets", () => {
     expect(r.snipers).toEqual([{ wallet: "SNIPER", launches: 3 }]);
     expect(r.launchers).toEqual([{ wallet: "LAUNCHER", launches: 4, lastAt: NOW }]);
     expect(r.generatedAt).toBe(NOW);
+  });
+});
+
+describe("quick score", () => {
+  const quickOf = (mint: string) => store.feed({ tab: "new", hideHigh: false, limit: 50, now: NOW }).find((r) => r.mint === mint)!.quick;
+  const node = (address: string, depth: number, role: "deployer" | "funder", fundedBy: string | null) => ({
+    address, depth, role, chainRoot: "X", fundedBy, fundingAmountLamports: null, fundedAt: null, fundingSignature: null, terminal: null,
+  });
+
+  it("knows nothing bad about a fresh dev", () => {
+    store.insertFeedToken(feedToken("NEW", { devBuyPct: 3 }));
+    expect(quickOf("NEW")).toEqual({ score: 0, level: "low", factors: [] });
+  });
+
+  it("counts the dev's other launches today and which of them dumped", () => {
+    store.insertFeedToken(feedToken("A", { creator: "FARM", createdAt: NOW - 3000 }));
+    store.insertFeedToken(feedToken("B", { creator: "FARM", createdAt: NOW - 2000 }));
+    store.insertFeedToken(feedToken("C", { creator: "FARM", createdAt: NOW - 100 }));
+    store.insertFeedToken(feedToken("OLD", { creator: "FARM", createdAt: NOW - 90_000 }));
+    expect(quickOf("C").factors.map((f) => f.id)).toEqual(["serialLauncher"]);
+    store.updateFeedCurves([{ mint: "A", marketCapSol: 30, progressPct: 50, realSol: 20, complete: false }], NOW);
+    store.updateFeedCurves([{ mint: "A", marketCapSol: 28, progressPct: 3, realSol: 1, complete: false }], NOW);
+    expect(quickOf("C").factors).toEqual([expect.objectContaining({ id: "dumpingLauncher", reason: "Another launch by this dev in the last 24 hours already dumped." })]);
+    // A's own dump is its curve, not "another launch".
+    expect(quickOf("A").factors.map((f) => f.id)).toEqual(["serialLauncher", "dumped"]);
+  });
+
+  it("uses dead launches, the cached funder and the dev profile from earlier traces", () => {
+    store.saveResult(result("PAST", "SERIAL", { devHistory: ["D1", "D2"].map((m) => devToken(m, "dead_dev_exited")), devProfile: profile }));
+    store.saveResult(
+      result("PAST2", "OTHERDEV", { devHistory: [devToken("D3", "dead_dev_exited")], nodes: [node("OTHERDEV", 0, "deployer", "BOSS"), node("BOSS", 1, "funder", null)] }),
+    );
+    store.putWallet({ address: "SERIAL", funderResolved: true, funder: "BOSS", fundingSignature: null, fundingAmountLamports: null, fundedAt: null, terminal: null, firstSeenAt: null, fetchedAt: NOW });
+    store.insertFeedToken(feedToken("NOW1", { creator: "SERIAL", devBuyPct: 15 }));
+    const q = quickOf("NOW1");
+    expect(q.factors.map((f) => f.id)).toEqual(["knownDeadDev", "taintedFunder", "fastSeller", "bigDevBuy"]);
+    expect(q.level).toBe("high");
+  });
+
+  it("hides untraced tokens whose quick score is high when asked", () => {
+    store.saveResult(result("PAST", "SERIAL", { devHistory: ["D1", "D2"].map((m) => devToken(m, "dead_dev_exited")), devProfile: profile }));
+    store.insertFeedToken(feedToken("BAD", { creator: "SERIAL", devBuyPct: 20 }));
+    store.insertFeedToken(feedToken("OK"));
+    store.updateFeedCurves([{ mint: "BAD", marketCapSol: 30, progressPct: 60, realSol: 20, complete: false }], NOW);
+    store.updateFeedCurves([{ mint: "BAD", marketCapSol: 28, progressPct: 1, realSol: 1, complete: false }], NOW);
+    expect(store.feed({ tab: "new", hideHigh: false, limit: 10, now: NOW }).map((r) => r.mint).sort()).toEqual(["BAD", "OK"]);
+    expect(store.feed({ tab: "new", hideHigh: true, limit: 10, now: NOW }).map((r) => r.mint)).toEqual(["OK"]);
+  });
+
+  it("serves one feed token for the token page", () => {
+    store.insertFeedToken(feedToken("ONE", { devBuyPct: 11 }));
+    expect(store.feedItem("ONE", NOW)?.quick.factors.map((f) => f.id)).toEqual(["bigDevBuy"]);
+    expect(store.feedItem("MISSING", NOW)).toBeNull();
   });
 });

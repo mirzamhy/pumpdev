@@ -27,7 +27,8 @@ test("lists live tokens with scores, trace state and flags", async ({ page }) =>
   await expect(rows.nth(1)).toContainText("recycled");
   await expect(rows.nth(2)).toContainText("copycat ×3");
   await expect(rows.nth(2)).toContainText("dumped");
-  await expect(rows.nth(2)).toContainText("–");
+  await expect(rows.nth(2).getByLabel("Quick score 30")).toHaveText("~30");
+  await expect(rows.nth(2).getByLabel("Quick score 30")).toHaveAttribute("title", /Curve fell from 60% to 1%/);
   await expect(page.getByText("1200 new tokens in the last hour")).toBeVisible();
   await expect(page.getByText("50% of traced scored high risk")).toBeVisible();
   await expect(page.getByText("Live", { exact: true })).toBeVisible();

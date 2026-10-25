@@ -96,6 +96,13 @@ export interface RiskScore {
   incomplete: boolean;
 }
 
+/** Instant score from what the database already knows; no bundle or holder checks. */
+export interface QuickScore {
+  score: number;
+  level: RiskLevel;
+  factors: RiskFactor[];
+}
+
 export type HolderTag = "dev" | "insider" | "bundle" | "sniper" | "fresh" | "repeatSniper";
 
 export interface Holder {
@@ -273,6 +280,7 @@ export interface FeedItem {
   /** Socials or image already used by a token created at least an hour earlier. */
   recycledSocials: boolean;
   autoTraced: boolean;
+  quick: QuickScore;
   trace: { state: FeedTraceState; score: number | null; level: RiskLevel | null };
 }
 

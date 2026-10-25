@@ -117,6 +117,7 @@ describe("API", () => {
       createSignature: null,
       createdAt: s.now,
       initialBuySol: 1,
+      devBuyPct: 12,
       isMayhemMode: false,
       marketCapSol: 30,
       progressPct: 5,
@@ -125,6 +126,10 @@ describe("API", () => {
     const before = (await app.inject({ method: "GET", url: "/api/feed" })).json();
     expect(before.items).toEqual([expect.objectContaining({ mint: s.mint, symbol: "FEED", trace: { state: "none", score: null, level: null } })]);
     expect(before.items[0]).not.toHaveProperty("tracedAt");
+    expect(before.items[0]).not.toHaveProperty("devBuyPct");
+    expect(before.items[0].quick.factors.map((f: { id: string }) => f.id)).toEqual(["bigDevBuy"]);
+    expect((await app.inject({ method: "GET", url: `/api/quick/${s.mint}` })).json()).toEqual(before.items[0].quick);
+    expect((await app.inject({ method: "GET", url: `/api/quick/${addr(9)}` })).statusCode).toBe(404);
     expect(before.stats).toEqual({ seenLastHour: 1, tracedLastHour: 0, highRiskShare: null, connected: false });
 
     await startTrace(s.mint);
@@ -145,7 +150,7 @@ describe("API", () => {
     for (let i = 0; i < 3; i++) {
       store.insertFeedToken({
         mint: addr(60 + i), name: null, symbol: null, uri: null, creator: "BUSY", bondingCurve: addr(70 + i), createSignature: null,
-        createdAt: s.now, initialBuySol: null, isMayhemMode: false, marketCapSol: null, progressPct: 0, realSol: 0,
+        createdAt: s.now, initialBuySol: null, devBuyPct: null, isMayhemMode: false, marketCapSol: null, progressPct: 0, realSol: 0,
       });
     }
     // Still the cached answer within a minute.

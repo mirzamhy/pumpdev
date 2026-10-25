@@ -116,6 +116,7 @@ const feedItem = (over: Partial<FeedItem>): FeedItem => ({
   copycatCount: 0,
   recycledSocials: false,
   autoTraced: false,
+  quick: { score: 0, level: "low", factors: [] },
   trace: { state: "none", score: null, level: null },
   ...over,
 });
@@ -124,7 +125,16 @@ export const sampleFeed: FeedResponse = {
   items: [
     feedItem({ autoTraced: true, trace: { state: "done", score: 82, level: "high" } }),
     feedItem({ mint: FUNDER, name: "Queued Coin", symbol: "QUEUE", progressPct: 41, recycledSocials: true, trace: { state: "queued", score: null, level: null } }),
-    feedItem({ mint: BUNDLER, name: "Korean Coin", symbol: "KOREAN", copycatCount: 3, marketCapSol: 28, progressPct: 1, peakProgressPct: 60 }),
+    feedItem({ mint: BUNDLER, name: "Korean Coin", symbol: "KOREAN", copycatCount: 3, marketCapSol: 28, progressPct: 1, peakProgressPct: 60,
+      quick: {
+        score: 30,
+        level: "medium",
+        factors: [
+          { id: "dumped", points: 25, reason: "Curve fell from 60% to 1%: holders sold into it." },
+          { id: "copycat", points: 5, reason: "3 other tokens used this ticker in the last 24 hours." },
+        ],
+      },
+    }),
   ],
   stats: { seenLastHour: 1200, tracedLastHour: 12, highRiskShare: 0.5, connected: true },
 };

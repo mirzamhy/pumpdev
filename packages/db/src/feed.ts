@@ -10,6 +10,8 @@ export interface FeedTokenInput {
   createSignature: string | null;
   createdAt: number;
   initialBuySol: number | null;
+  /** Share of total supply the creator bought in the create transaction, 0..100. */
+  devBuyPct: number | null;
   isMayhemMode: boolean;
   marketCapSol: number | null;
   progressPct: number;
@@ -25,6 +27,7 @@ export interface FeedCurveUpdate {
 }
 
 export type FeedRow = Omit<FeedItem, "trace"> & { score: number | null; level: RiskLevel | null; tracedAt: number | null };
+export type FeedRowBase = Omit<FeedRow, "quick"> & { devBuyPct: number | null };
 
 export interface FeedRowRaw {
   mint: string;
@@ -37,6 +40,7 @@ export interface FeedRowRaw {
   peak_progress_pct: number;
   real_sol: number;
   initial_buy_sol: number | null;
+  dev_buy_pct: number | null;
   complete: number;
   migrated_at: number | null;
   mayhem: number;
@@ -48,7 +52,7 @@ export interface FeedRowRaw {
   traced_at: number | null;
 }
 
-export const rawToFeedRow = (r: FeedRowRaw): FeedRow => ({
+export const rawToFeedRow = (r: FeedRowRaw): FeedRowBase => ({
   mint: r.mint,
   name: r.name,
   symbol: r.symbol,
@@ -59,6 +63,7 @@ export const rawToFeedRow = (r: FeedRowRaw): FeedRow => ({
   peakProgressPct: r.peak_progress_pct,
   realSol: r.real_sol,
   initialBuySol: r.initial_buy_sol,
+  devBuyPct: r.dev_buy_pct,
   complete: r.complete === 1,
   migratedAt: r.migrated_at,
   isMayhemMode: r.mayhem === 1,

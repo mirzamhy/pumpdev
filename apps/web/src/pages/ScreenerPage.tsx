@@ -59,7 +59,7 @@ export function ScreenerPage() {
         <h1 className="text-2xl font-semibold tracking-tight">Live screener</h1>
         <p className="mt-1 max-w-2xl text-sm text-muted">
           Every new pump.fun launch, as it happens. Tokens that sell 40% of their curve in the first 15 minutes are traced automatically; open any
-          other token to trace it.
+          other token to trace it. Untraced tokens show a quick score (~) from what we already know about the dev, the socials and the curve.
         </p>
       </div>
 

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Link, useParams } from "@tanstack/react-router";
 import { CrosslinksList } from "../components/CrosslinksList";
 import { DevHabitsCard } from "../components/DevHabitsCard";
@@ -14,6 +15,7 @@ import { SocialsCard } from "../components/SocialsCard";
 import { StepProgress } from "../components/StepProgress";
 import { TokenHeader } from "../components/TokenHeader";
 import { Card, Skeleton } from "../components/ui";
+import { fetchQuick } from "../lib/api";
 import { useMediaQuery } from "../lib/useMediaQuery";
 import { useTrace } from "../lib/useTrace";
 
@@ -24,6 +26,8 @@ export function TokenPage() {
   const wide = useMediaQuery("(min-width: 768px)");
   const selectedNode = view.nodes.find((n) => n.address === selected) ?? null;
   const loading = !view.done;
+  // Only worth asking while the full score is still on its way.
+  const quick = useQuery({ queryKey: ["quick", mint], queryFn: () => fetchQuick(mint), enabled: !view.score && !view.done, staleTime: 30_000, retry: false });
 
   if (view.error && !view.token) {
     return (
@@ -72,7 +76,7 @@ export function TokenPage() {
           <DevHistoryTable tokens={view.devHistory} partial={view.devHistoryPartial} loading={loading} />
         </div>
         <div className="space-y-6">
-          <RiskCard score={view.score} done={view.done} />
+          <RiskCard score={view.score} done={view.done} quick={quick.data ?? null} />
           <SocialsCard socials={view.socials} loading={loading} />
           <DevStatusCard status={view.devStatus} loading={loading} />
           <DevHabitsCard profile={view.devProfile} loading={loading} />

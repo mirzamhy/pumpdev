@@ -19,6 +19,7 @@ const token = (mint: string, over: Partial<FeedTokenInput> = {}): FeedTokenInput
   createSignature: `SIG-${mint}`,
   createdAt: NOW - 60,
   initialBuySol: 1,
+  devBuyPct: null,
   isMayhemMode: false,
   marketCapSol: 28,
   progressPct: 0,

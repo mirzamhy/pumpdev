@@ -76,6 +76,7 @@ CREATE TABLE IF NOT EXISTS feed_tokens (
   create_signature TEXT,
   created_at INTEGER NOT NULL,
   initial_buy_sol REAL,
+  dev_buy_pct REAL,
   mayhem INTEGER NOT NULL DEFAULT 0,
   market_cap_sol REAL,
   progress_pct REAL NOT NULL DEFAULT 0,
@@ -115,4 +116,5 @@ CREATE INDEX IF NOT EXISTS token_meta_created ON token_meta(created_at);
 /** Columns added after the first release; applied to databases created by older versions. */
 export const COLUMN_MIGRATIONS: { table: string; column: string; ddl: string }[] = [
   { table: "wallets", column: "first_seen_at", ddl: "ALTER TABLE wallets ADD COLUMN first_seen_at INTEGER" },
+  { table: "feed_tokens", column: "dev_buy_pct", ddl: "ALTER TABLE feed_tokens ADD COLUMN dev_buy_pct REAL" },
 ];

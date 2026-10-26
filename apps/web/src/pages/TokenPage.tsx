@@ -26,6 +26,12 @@ export function TokenPage() {
   const wide = useMediaQuery("(min-width: 768px)");
   const selectedNode = view.nodes.find((n) => n.address === selected) ?? null;
   const loading = !view.done;
+  // Wallets on the dev's side: used to mark early buyers they funded.
+  const devSide = new Set([
+    ...(view.token ? [view.token.deployer] : []),
+    ...view.nodes.filter((n) => n.terminal !== "high_activity").map((n) => n.address),
+    ...(view.devStatus?.transfers.map((t) => t.to) ?? []),
+  ]);
   // Only worth asking while the full score is still on its way.
   const quick = useQuery({ queryKey: ["quick", mint], queryFn: () => fetchQuick(mint), enabled: !view.score && !view.done, staleTime: 30_000, retry: false });
 
@@ -80,7 +86,7 @@ export function TokenPage() {
             <p className="mt-3 text-xs text-muted">Each link is the first SOL transfer the funded wallet ever received.</p>
           </Card>
           <NodeDetail node={selectedNode} onClose={() => setSelected(null)} />
-          <HoldersCard holders={view.holders} loading={loading} />
+          <HoldersCard holders={view.holders} loading={loading} devSide={devSide} />
           <DevHistoryTable tokens={view.devHistory} partial={view.devHistoryPartial} loading={loading} />
         </div>
         <div className="space-y-6">

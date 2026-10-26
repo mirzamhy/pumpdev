@@ -16,6 +16,8 @@ const RPC_CONCURRENCY = 3;
 /** Funders are resolved for this many of the earliest buyers; each costs a few RPC calls on a cold cache. */
 const EARLY_RESOLVE = 12;
 const UNIFORM_TOLERANCE = 0.1;
+/** Mayhem Mode credits pump.fun's agent with 1B extra tokens (6 decimals) inside the create transaction. */
+const MAYHEM_AGENT_MINT = 1_000_000_000_000_000n;
 
 export interface HolderInput {
   token: TokenInfo;
@@ -52,7 +54,6 @@ export async function analyzeHolders(input: HolderInput, chain: ChainSource, sto
   if (!mintAccount) throw new Error("mint account not found");
   const supply = decodeMintSupply(mintAccount.data);
   if (supply === 0n) throw new Error("mint has zero supply");
-  const pct = (amount: bigint) => Number((amount * 1_000_000n) / supply) / 10_000;
 
   const curve = await bondingCurvePda(token.mint);
   const balances = new Map<string, bigint>();
@@ -61,14 +62,24 @@ export async function analyzeHolders(input: HolderInput, chain: ChainSource, sto
     if (account.owner === curve || amount === 0n) continue;
     balances.set(account.owner, (balances.get(account.owner) ?? 0n) + amount);
   }
-  const ranked = [...balances].sort(byAmountDesc);
-  const top = ranked.slice(0, TOP_N);
   const holding = (wallet: string) => balances.get(wallet) ?? 0n;
 
   const devWallets = new Set([token.deployer, token.creatorCurrent, token.creatorOriginal].filter((w): w is string => Boolean(w)));
   const insiders = new Set(devStatus?.transfers.map((t) => t.to) ?? []);
 
-  const found = token.createSlot === null ? null : await findEarlyBuyers(chain, token.mint, token.createSlot, token.createSignature, curve, devWallets, holding);
+  const found =
+    token.createSlot === null ? null : await findEarlyBuyers(chain, token.mint, token.createSlot, token.createSignature, token.isMayhemMode, curve, devWallets, holding);
+
+  // Mayhem Mode mints an extra 1B for pump.fun's trading agent; it is the platform, not a holder or a bundler.
+  let agentHeld = 0n;
+  for (const agent of found?.agents ?? []) {
+    agentHeld += holding(agent);
+    balances.delete(agent);
+  }
+  const circulating = supply - agentHeld > 0n ? supply - agentHeld : supply;
+  const pct = (amount: bigint) => Number((amount * 1_000_000n) / circulating) / 10_000;
+  const ranked = [...balances].sort(byAmountDesc);
+  const top = ranked.slice(0, TOP_N);
   const firstBuyers = found?.buyers ?? [];
   const bundleWallets = new Set(firstBuyers.filter((b) => b.slotOffset === 0).map((b) => b.wallet));
   const sniperWallets = new Set(firstBuyers.filter((b) => b.slotOffset > 0).map((b) => b.wallet));
@@ -174,15 +185,21 @@ async function findEarlyBuyers(
   mint: string,
   createSlot: number,
   createSignature: string | null,
+  mayhem: boolean,
   curve: string,
   devWallets: Set<string>,
   holding: (wallet: string) => bigint,
-): Promise<{ buyers: EarlyBuyer[]; multiBuyerTxs: number }> {
+): Promise<{ buyers: EarlyBuyer[]; multiBuyerTxs: number; agents: string[] }> {
   const bought = new Map<string, { slotOffset: number; amount: bigint; signature: string; txBuyers: number }>();
+  const agents = new Set<string>();
   let multiBuyerTxs = 0;
   for (let offset = 0; offset < EARLY_SLOTS; offset++) {
     for (const tx of await chain.getBlockTokenChanges(createSlot + offset)) {
-      const credited = [...balanceDeltas(tx.preTokenBalances, tx.postTokenBalances, mint)].filter(([owner, delta]) => delta > 0n && owner !== curve && !devWallets.has(owner));
+      const deltas = [...balanceDeltas(tx.preTokenBalances, tx.postTokenBalances, mint)];
+      if (mayhem && tx.signature === createSignature) {
+        for (const [owner, delta] of deltas) if (delta === MAYHEM_AGENT_MINT) agents.add(owner);
+      }
+      const credited = deltas.filter(([owner, delta]) => delta > 0n && owner !== curve && !devWallets.has(owner) && !agents.has(owner));
       if (offset === 0 && credited.length >= 2) multiBuyerTxs++;
       for (const [owner, delta] of credited) {
         const prev = bought.get(owner);
@@ -202,7 +219,7 @@ async function findEarlyBuyers(
       txBuyers: b.txBuyers,
     }))
     .sort((a, b) => a.slotOffset - b.slotOffset || (BigInt(b.bought) > BigInt(a.bought) ? 1 : -1));
-  return { buyers, multiBuyerTxs };
+  return { buyers, multiBuyerTxs, agents: [...agents] };
 }
 
 /** Exchanges and services fund everyone, so a full first page of signatures disqualifies a funder from linking holders. */

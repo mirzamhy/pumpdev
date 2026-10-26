@@ -26,10 +26,30 @@ test("shows holders with a bubble map, clusters and flags", async ({ page }) => 
   await page.goto(`/token/${MINT}`);
   await expect(page.getByRole("heading", { name: "Holders" })).toBeVisible();
   await expect(page.getByText("214")).toBeVisible();
-  await expect(page.getByRole("img", { name: /Bubble map of the top 4 holders; 1 cluster/ })).toBeVisible();
+  await expect(page.getByRole("group", { name: /Bubble map of the top 4 holders; 1 cluster/ })).toBeVisible();
   await expect(page.getByText("Cluster 1: 2 wallets hold 11.0%")).toBeVisible();
   await expect(page.getByText("bundle", { exact: true }).first()).toBeVisible();
-  await expect(page.getByText("launch block", { exact: true })).toBeVisible();
+  await expect(page.getByText("launch block", { exact: true }).first()).toBeVisible();
+});
+
+test("explains the launch bundle and groups buyers by transaction", async ({ page }) => {
+  await mockApi(page);
+  await page.goto(`/token/${MINT}`);
+  await expect(page.getByRole("heading", { name: "Launch bundle" })).toBeVisible();
+  await expect(page.getByText("2 early buyers funded by the dev side")).toBeVisible();
+  await expect(page.getByText("1 transaction bought for several wallets at once")).toBeVisible();
+  await expect(page.getByText("One transaction bought for 2 wallets")).toBeVisible();
+  await expect(page.getByText("dev-funded").first()).toBeVisible();
+});
+
+test("filters the bubble map and shows holder details", async ({ page }) => {
+  await mockApi(page);
+  await page.goto(`/token/${MINT}`);
+  await page.getByRole("button", { name: /Fresh wallets 1/ }).click();
+  await expect(page.getByRole("button", { name: /Fresh wallets 1/ })).toHaveAttribute("aria-pressed", "true");
+  await page.getByRole("button", { name: /^#2 / }).click();
+  await expect(page.getByText("Holder #2")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Open wallet" })).toBeVisible();
 });
 
 test("rejects an invalid address inline", async ({ page }) => {

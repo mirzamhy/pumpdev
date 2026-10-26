@@ -1,8 +1,8 @@
-import type { FeedItem, FeedResponse, RiskyWallets, TraceResult } from "@pumpfun/shared";
+import type { FeedItem, FeedResponse, RiskyWallets, TraceResult, WalletView } from "@pumpfun/shared";
 
 export const MINT = "9BB6NFEcjBCtnNLFko2FqVQBq8HHM13kCyYcdQbgpump";
 export const DEV = "7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU";
-const FUNDER = "5Q544fKrFoe6tsEbD7S8EmxGTJYAKtTVhAW5Q5pge4j1";
+export const FUNDER = "5Q544fKrFoe6tsEbD7S8EmxGTJYAKtTVhAW5Q5pge4j1";
 const BUNDLER = "9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM";
 const SIB_A = "HN7cABqLq46Es1jh92dQQisAq662SmxELLLsHHe4YWrH";
 const SIB_B = "EuBYDqZ8aH8N2ehpR5Q5KkSDhd5Us3MHmdd8rrwJyNdC";
@@ -44,7 +44,21 @@ export const sampleResult: TraceResult = {
       { address: DEV, amount: "30000000000000", pct: 3, rank: 4, tags: ["dev"], cluster: null, fundedBy: FUNDER, firstSeenAt: null },
     ],
     clusters: [{ id: 1, members: [SIB_A, SIB_B], pct: 11, linkedToDev: false, sharedFunder: FUNDER }],
-    earlyBuyers: [{ wallet: BUNDLER, slotOffset: 0, bought: "90000000000000", holding: "90000000000000" }],
+    earlyBuyers: [
+      { wallet: BUNDLER, slotOffset: 0, bought: "90000000000000", holding: "90000000000000", signature: "bundletx", sameTxAsCreate: false, txBuyers: 2, fundedBy: FUNDER, fresh: false },
+      { wallet: SIB_A, slotOffset: 0, bought: "60000000000000", holding: "60000000000000", signature: "bundletx", sameTxAsCreate: false, txBuyers: 2, fundedBy: FUNDER, fresh: true },
+    ],
+    bundle: {
+      wallets: 2,
+      boughtPct: 15,
+      heldPct: 15,
+      sameTxAsCreate: 0,
+      multiBuyerTxs: 1,
+      fundedByDev: 2,
+      sharedFunders: [{ funder: FUNDER, wallets: [BUNDLER, SIB_A] }],
+      fresh: 1,
+      uniformBuys: false,
+    },
     bundlePct: 9,
     insiderPct: 12,
     top10Pct: 23,
@@ -145,4 +159,44 @@ export const sampleRisky: RiskyWallets = {
   snipers: [],
   launchers: [{ wallet: BUNDLER, launches: 40, lastAt: Math.floor(Date.now() / 1000) - 60 }],
   generatedAt: Math.floor(Date.now() / 1000),
+};
+
+export const sampleWallet: WalletView = {
+  address: DEV,
+  known: true,
+  chain: [
+    { address: DEV, depth: 0, role: "deployer", chainRoot: DEV, fundedBy: FUNDER, fundingAmountLamports: "1000000000", fundedAt: 1_759_000_000, fundingSignature: "f1", terminal: null },
+    { address: FUNDER, depth: 1, role: "funder", chainRoot: DEV, fundedBy: null, fundingAmountLamports: null, fundedAt: null, fundingSignature: null, terminal: "unknown_origin" },
+  ],
+  deployed: [
+    { mint: MINT, name: "Test Coin", symbol: "TEST", createdAt: 1_760_000_000, status: null },
+    { mint: SIB_B, name: "Old Rug", symbol: "OLDRUG", createdAt: 1_759_500_000, status: "dead_dev_exited" },
+  ],
+  appearances: [],
+  profile: null,
+  firstSeenAt: 1_758_000_000,
+  cluster: {
+    funder: FUNDER,
+    siblings: [{ wallet: SIB_A, count: 3, dead: 2 }],
+    funded: [],
+    repeatBuyers: [{ wallet: BUNDLER, count: 2 }],
+    insiders: [],
+  },
+  feedLaunches: [
+    {
+      mint: MINT,
+      name: "Test Coin",
+      symbol: "TEST",
+      createdAt: 1_760_000_000,
+      progressPct: 42,
+      peakProgressPct: 42,
+      complete: false,
+      migratedAt: null,
+      recycledSocials: true,
+      quick: { score: 15, level: "low", factors: [] },
+      score: 50,
+      level: "medium",
+    },
+  ],
+  archetype: { kind: "rugger", evidence: ["2 of 2 launches died with the dev exiting."] },
 };

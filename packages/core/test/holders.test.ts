@@ -218,4 +218,24 @@ describe("analyzeHolders", () => {
     expect(result.bundle?.sharedFunders.map((f) => ({ ...f, wallets: [...f.wallets].sort() }))).toEqual([{ funder: DEV, wallets: [H5, FRESHY, H6].sort() }]);
     expect(result.earlyBuyers?.find((b) => b.wallet === H5)).toMatchObject({ sameTxAsCreate: true, txBuyers: 2, fundedBy: DEV });
   });
+  it("leaves out the Mayhem Mode agent and measures shares against circulating supply", async () => {
+    const { chain, store } = await world();
+    const AGENT = addr(77);
+    const supply = 2_000_000_000_000_000n;
+    chain.accounts.set(MINT, { address: MINT, owner: TOKEN_2022_PROGRAM_ID, data: encodeToken2022Mint({ name: "Coin", symbol: "C", uri: "u" }, MINT, supply) });
+    chain.mintHolders.set(MINT, [
+      { owner: AGENT, amount: "1000000000000000" },
+      { owner: H1, amount: "100000000000000" },
+      { owner: H2, amount: "50000000000000" },
+    ]);
+    chain.blocks.set(100, [
+      { signature: "create", preTokenBalances: [], postTokenBalances: [tokenBal(1, MINT, AGENT, 1_000_000_000_000_000), tokenBal(2, MINT, DEV, 50000)] },
+      bought(H1, 100_000_000_000_000),
+    ]);
+    const result = await analyzeHolders({ token: { ...token, isMayhemMode: true }, nodes: [devNode], devStatus }, chain, store, cfg, NOW);
+    expect(result.top.map((h) => h.address)).toEqual([H1, H2]);
+    expect(result.top[0]!.pct).toBe(10);
+    expect(result.earlyBuyers?.filter((b) => b.slotOffset === 0).map((b) => b.wallet)).toEqual([H1]);
+    expect(result.bundle).toMatchObject({ sameTxAsCreate: 0, wallets: 1 });
+  });
 });

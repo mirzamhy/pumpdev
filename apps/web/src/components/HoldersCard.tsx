@@ -1,8 +1,11 @@
+import { useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
-import { formatPct, formatTokenAmount, type HolderAnalysis, type HolderTag } from "@pumpfun/shared";
+import { formatPct, formatTokenAmount, type Holder, type HolderAnalysis, type HolderTag } from "@pumpfun/shared";
+import { relTime } from "../lib/format";
 import type { Tone } from "../lib/risk";
-import { BubbleMap, clusterColor } from "./BubbleMap";
-import { Address, Badge, Card, Skeleton } from "./ui";
+import { BubbleMap, CLUSTER_COLORS, FILTERS, clusterColor, type BubbleFilter } from "./BubbleMap";
+import { BundleSummary, EarlyBuyerList } from "./BundleSection";
+import { Address, Badge, Card, CopyButton, Skeleton } from "./ui";
 
 const tagStyle: Record<HolderTag, { label: string; tone: Tone; title: string }> = {
   dev: { label: "dev", tone: "danger", title: "The wallet that launched this token, or its creator." },
@@ -13,8 +16,6 @@ const tagStyle: Record<HolderTag, { label: string; tone: Tone; title: string }> 
   repeatSniper: { label: "repeat sniper", tone: "danger", title: "Bought this early in 3+ other tokens we traced." },
 };
 
-const slotLabel = (offset: number) => (offset === 0 ? "launch block" : `+${offset} block${offset === 1 ? "" : "s"}`);
-
 function Stat({ label, value, warn = false }: { label: string; value: string; warn?: boolean }) {
   return (
     <div className="rounded-lg bg-surface-2 px-3 py-2">
@@ -24,8 +25,61 @@ function Stat({ label, value, warn = false }: { label: string; value: string; wa
   );
 }
 
-export function HoldersCard({ holders, loading }: { holders: HolderAnalysis | null; loading: boolean }) {
+function HolderDetail({ holder, onOpen, onClose }: { holder: Holder; onOpen: () => void; onClose: () => void }) {
+  return (
+    <div className="rounded-2xl border border-line bg-bg/60 p-4 text-sm" aria-live="polite">
+      <div className="flex items-start justify-between gap-2">
+        <div>
+          <p className="text-xs text-muted">Holder #{holder.rank}</p>
+          <p className="mt-0.5 break-all font-mono">
+            {holder.address} <CopyButton value={holder.address} />
+          </p>
+        </div>
+        <button type="button" onClick={onClose} className="text-muted hover:text-text" aria-label="Close holder details">
+          ×
+        </button>
+      </div>
+      <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2">
+        <dt className="text-muted">Share</dt>
+        <dd className="text-right font-mono">{formatPct(holder.pct)}</dd>
+        <dt className="text-muted">Holds</dt>
+        <dd className="text-right font-mono">{formatTokenAmount(holder.amount)}</dd>
+        <dt className="text-muted">Funded by</dt>
+        <dd className="text-right">{holder.fundedBy ? <Address value={holder.fundedBy} /> : <span className="text-muted">unknown</span>}</dd>
+        <dt className="text-muted">First activity</dt>
+        <dd className="text-right">{holder.firstSeenAt ? relTime(holder.firstSeenAt) : "–"}</dd>
+        <dt className="text-muted">Cluster</dt>
+        <dd className="text-right">
+          {holder.cluster === null ? (
+            "–"
+          ) : (
+            <span className="inline-flex items-center gap-1.5">
+              <span aria-hidden className="inline-block size-2.5 rounded-full" style={{ background: clusterColor(holder.cluster) }} />
+              {holder.cluster}
+            </span>
+          )}
+        </dd>
+      </dl>
+      {holder.tags.length > 0 && (
+        <div className="mt-3 flex flex-wrap gap-1">
+          {holder.tags.map((t) => (
+            <Badge key={t} tone={tagStyle[t].tone} title={tagStyle[t].title}>
+              {tagStyle[t].label}
+            </Badge>
+          ))}
+        </div>
+      )}
+      <button type="button" onClick={onOpen} className="mt-4 w-full rounded-lg bg-accent-strong px-3 py-2 text-sm font-semibold text-white hover:brightness-110">
+        Open wallet
+      </button>
+    </div>
+  );
+}
+
+export function HoldersCard({ holders, loading, devSide = new Set() }: { holders: HolderAnalysis | null; loading: boolean; devSide?: Set<string> }) {
   const navigate = useNavigate();
+  const [filter, setFilter] = useState<BubbleFilter>("all");
+  const [selected, setSelected] = useState<string | null>(null);
   if (!holders) {
     return <Card title="Holders">{loading ? <Skeleton className="h-48" /> : <p className="text-sm text-muted">Holder analysis did not finish (RPC error or time limit). Try the trace again in a minute.</p>}</Card>;
   }
@@ -42,6 +96,7 @@ export function HoldersCard({ holders, loading }: { holders: HolderAnalysis | nu
   }
 
   const open = (address: string) => void navigate({ to: "/wallet/$address", params: { address } });
+  const selectedHolder = holders.top.find((h) => h.address === selected) ?? null;
   const pct = (n: number | null) => (n === null ? "unknown" : formatPct(n));
 
   return (
@@ -54,12 +109,54 @@ export function HoldersCard({ holders, loading }: { holders: HolderAnalysis | nu
       </div>
 
       <div className="mt-4">
-        <BubbleMap holders={holders.top} clusters={holders.clusters} onSelect={open} />
-        <p className="mt-2 text-xs text-muted">
-          Bubble size is share of supply (bonding curve excluded). Same color = wallets that look like one owner (shared funder, funded by each other or by the dev).
-          Red ring = dev, insider or launch-block buyer.
-        </p>
+        <div role="group" aria-label="Highlight holders" className="mb-2 flex flex-wrap gap-1.5">
+          {FILTERS.map((f) => {
+            const count = f.id === "all" ? holders.top.length : holders.top.filter(f.match).length;
+            return (
+              <button
+                key={f.id}
+                type="button"
+                aria-pressed={filter === f.id}
+                onClick={() => setFilter(f.id)}
+                className={`rounded-full border px-3 py-1 text-xs focus-visible:outline-2 focus-visible:outline-accent ${
+                  filter === f.id ? "border-accent bg-accent/15 text-text" : "border-line text-muted hover:text-text"
+                }`}
+              >
+                {f.label} <span className="tabular-nums opacity-70">{count}</span>
+              </button>
+            );
+          })}
+        </div>
+        <div className={selectedHolder ? "grid gap-3 lg:grid-cols-[minmax(0,1fr)_260px]" : ""}>
+          <BubbleMap holders={holders.top} clusters={holders.clusters} filter={filter} selected={selected} onSelect={(a) => setSelected(a === selected ? null : a)} />
+          {selectedHolder && <HolderDetail holder={selectedHolder} onOpen={() => open(selectedHolder.address)} onClose={() => setSelected(null)} />}
+        </div>
+        <ul className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted">
+          <li className="flex items-center gap-1.5">
+            <span aria-hidden className="inline-flex">
+              {CLUSTER_COLORS.slice(0, 3).map((c) => (
+                <span key={c} className="-mr-1 inline-block size-2.5 rounded-full ring-1 ring-bg" style={{ background: c }} />
+              ))}
+            </span>
+            <span className="ml-1">Same colour: looks like one owner</span>
+          </li>
+          <li className="flex items-center gap-1.5">
+            <span aria-hidden className="inline-block size-2.5 rotate-45 border-2 border-accent" />
+            Shared funder
+          </li>
+          <li className="flex items-center gap-1.5">
+            <span aria-hidden className="inline-block size-2.5 rounded-full border-2 border-danger" />
+            Dev, insider or launch-block buyer
+          </li>
+          <li>Size: share of supply (curve excluded). Click a bubble for details; Ctrl + scroll or pinch to zoom.</li>
+        </ul>
       </div>
+
+      {holders.bundle && holders.bundle.wallets > 0 && (
+        <div className="mt-4">
+          <BundleSummary bundle={holders.bundle} devFunders={devSide} />
+        </div>
+      )}
 
       {holders.clusters.length > 0 && (
         <ul className="mt-4 space-y-1 text-sm">
@@ -123,19 +220,7 @@ export function HoldersCard({ holders, loading }: { holders: HolderAnalysis | nu
         ) : holders.earlyBuyers.length === 0 ? (
           <p className="mt-2 text-sm text-muted">Nobody else bought in the launch block or the two after it.</p>
         ) : (
-          <ul className="mt-2 space-y-1 text-sm">
-            {holders.earlyBuyers.map((b) => (
-              <li key={b.wallet} className="flex flex-wrap items-center justify-between gap-2">
-                <span className="inline-flex items-center gap-2">
-                  <Address value={b.wallet} />
-                  <span className="text-muted">{slotLabel(b.slotOffset)}</span>
-                </span>
-                <span className="tabular-nums text-muted">
-                  bought {formatTokenAmount(b.bought)} · holds <span className={b.holding === "0" ? "" : "text-warn"}>{formatTokenAmount(b.holding)}</span>
-                </span>
-              </li>
-            ))}
-          </ul>
+          <EarlyBuyerList buyers={holders.earlyBuyers} devFunders={devSide} />
         )}
       </div>
     </Card>

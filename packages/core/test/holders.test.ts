@@ -129,9 +129,9 @@ describe("analyzeHolders", () => {
   it("finds buyers in the creation slot and the next two, excluding the dev", async () => {
     const { result } = await analyze();
     expect(result.earlyBuyers).toEqual([
-      { wallet: H3, slotOffset: 0, bought: "70000", holding: "70000" },
-      { wallet: H4, slotOffset: 1, bought: "60000", holding: "60000" },
-      { wallet: SOLD, slotOffset: 2, bought: "9000", holding: "0" },
+      { wallet: H3, slotOffset: 0, bought: "70000", holding: "70000", signature: "buy-" + H3.slice(0, 6), sameTxAsCreate: false, txBuyers: 1, fundedBy: BUSY, fresh: false },
+      { wallet: H4, slotOffset: 1, bought: "60000", holding: "60000", signature: "buy-" + H4.slice(0, 6), sameTxAsCreate: false, txBuyers: 1, fundedBy: BUSY, fresh: false },
+      { wallet: SOLD, slotOffset: 2, bought: "9000", holding: "0", signature: "buy-" + SOLD.slice(0, 6), sameTxAsCreate: false, txBuyers: 1, fundedBy: null, fresh: false },
     ]);
     expect(result.bundlePct).toBe(7);
   });
@@ -180,5 +180,42 @@ describe("analyzeHolders", () => {
     chain.setHistory(addr(99), [{ signature: "x" }]);
     const result = await analyzeHolders({ token, nodes: [devNode], devStatus }, chain, store, cfg, NOW);
     expect(result.clusters[0]).toMatchObject({ members: [H1, H2], sharedFunder: F1, pct: 18 });
+  });
+  it("summarises the bundle: shared busy funders are ignored, no dev funding, sold buyers count as bought", async () => {
+    const { result } = await analyze();
+    expect(result.bundle).toEqual({
+      wallets: 1,
+      boughtPct: 7,
+      heldPct: 7,
+      sameTxAsCreate: 0,
+      multiBuyerTxs: 0,
+      fundedByDev: 0,
+      sharedFunders: [],
+      fresh: 0,
+      uniformBuys: false,
+    });
+  });
+
+  it("catches a create transaction that also buys for other wallets, dev-funded buyers and uniform sizes", async () => {
+    const { chain, store } = await world();
+    const multi = (signature: string, owners: string[], amount: number) => ({
+      signature,
+      preTokenBalances: [],
+      postTokenBalances: owners.map((o, i) => tokenBal(i + 1, MINT, o, amount)),
+    });
+    funded(chain, H5, DEV);
+    funded(chain, FRESHY, DEV, NOW - 3600);
+    chain.blocks.set(100, [multi("create", [DEV, H5, FRESHY], 20000), multi("jito", [H3, H6], 21000)]);
+    const result = await analyzeHolders({ token, nodes: [devNode], devStatus }, chain, store, cfg, NOW);
+    expect(result.bundle).toMatchObject({
+      wallets: 4,
+      sameTxAsCreate: 2,
+      multiBuyerTxs: 2,
+      fundedByDev: 3,
+      fresh: 1,
+      uniformBuys: true,
+    });
+    expect(result.bundle?.sharedFunders.map((f) => ({ ...f, wallets: [...f.wallets].sort() }))).toEqual([{ funder: DEV, wallets: [H5, FRESHY, H6].sort() }]);
+    expect(result.earlyBuyers?.find((b) => b.wallet === H5)).toMatchObject({ sameTxAsCreate: true, txBuyers: 2, fundedBy: DEV });
   });
 });

@@ -29,6 +29,7 @@ export const RISK_WEIGHTS = {
   repeatSniper: 10,
   recycledSocials: 15,
   fastSeller: 15,
+  devBundle: 20,
 } as const;
 
 export interface ScoreInput {
@@ -146,6 +147,14 @@ function holderFactors(h: HolderAnalysis | null): RiskFactor[] {
       points: RISK_WEIGHTS.insiderSupply,
       reason: `Dev-linked and launch-block wallets hold ${formatPct(h.insiderPct)} of supply.`,
     });
+  }
+  const b = h.bundle;
+  if (b && (b.fundedByDev >= 2 || b.sameTxAsCreate >= 1)) {
+    const parts = [
+      b.fundedByDev >= 2 ? `${b.fundedByDev} early buyers were funded by the dev side` : null,
+      b.sameTxAsCreate >= 1 ? `${plural(b.sameTxAsCreate, "wallet")} bought inside the dev's create transaction` : null,
+    ].filter(Boolean);
+    factors.push({ id: "devBundle", points: RISK_WEIGHTS.devBundle, reason: `${parts.join("; ")}.`.replace(/^./, (c) => c.toUpperCase()) });
   }
   const cluster = h.clusters.find((c) => c.members.length >= 3 && c.pct >= 10);
   if (cluster) {

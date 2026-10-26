@@ -130,6 +130,33 @@ export interface EarlyBuyer {
   slotOffset: number;
   bought: string;
   holding: string;
+  /** Absent in results stored before bundle analysis. */
+  signature?: string;
+  /** Bought inside the token's create transaction. */
+  sameTxAsCreate?: boolean;
+  /** Wallets credited by the same transaction, this one included. */
+  txBuyers?: number;
+  /** Resolved for the earliest buyers only; null when unknown. */
+  fundedBy?: string | null;
+  fresh?: boolean;
+}
+
+/** How the launch-block buyers behave together. */
+export interface BundleAnalysis {
+  /** Buyers in the launch block (dev excluded). */
+  wallets: number;
+  boughtPct: number;
+  heldPct: number;
+  sameTxAsCreate: number;
+  /** Launch-block transactions that credited two or more wallets. */
+  multiBuyerTxs: number;
+  /** Early buyers funded by the dev, a dev funder or an insider. */
+  fundedByDev: number;
+  /** Funders behind two or more early buyers (exchanges ignored). */
+  sharedFunders: { funder: string; wallets: string[] }[];
+  fresh: number;
+  /** Three or more launch-block buys within ±10% of their median. */
+  uniformBuys: boolean;
 }
 
 export interface HolderAnalysis {
@@ -146,6 +173,8 @@ export interface HolderAnalysis {
   top10Pct: number | null;
   freshCount: number;
   repeatSnipers: { wallet: string; count: number }[];
+  /** Absent in results stored before bundle analysis; null when early buyers are unknown. */
+  bundle?: BundleAnalysis | null;
 }
 
 export type TwitterKind = "account" | "tweet" | "community" | "other";

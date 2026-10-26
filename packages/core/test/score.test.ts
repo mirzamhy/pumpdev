@@ -230,4 +230,14 @@ describe("socials and dev habit factors", () => {
     ]);
     expect(computeScore({ ...base, devProfile: profile(1) }).factors).toEqual([]);
   });
+  it("flags a dev-funded or create-transaction bundle", () => {
+    const bundle = { wallets: 4, boughtPct: 20, heldPct: 5, sameTxAsCreate: 0, multiBuyerTxs: 1, fundedByDev: 0, sharedFunders: [], fresh: 0, uniformBuys: false };
+    const reasons = (b: Partial<typeof bundle>) =>
+      computeScore({ ...base, holders: holders({ bundle: { ...bundle, ...b } }) }).factors.filter((f) => f.id === "devBundle").map((f) => f.reason);
+    expect(reasons({})).toEqual([]);
+    expect(reasons({ fundedByDev: 1 })).toEqual([]);
+    expect(reasons({ fundedByDev: 3 })).toEqual(["3 early buyers were funded by the dev side."]);
+    expect(reasons({ sameTxAsCreate: 1 })).toEqual(["1 wallet bought inside the dev's create transaction."]);
+    expect(reasons({ fundedByDev: 2, sameTxAsCreate: 2 })).toEqual(["2 early buyers were funded by the dev side; 2 wallets bought inside the dev's create transaction."]);
+  });
 });

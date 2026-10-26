@@ -39,7 +39,9 @@ describe("runTrace", () => {
     expect(events.at(-1)).toEqual({ type: "done", data: { partial: false } });
 
     expect(result.holders).toMatchObject({ available: true, holderCount: 3, bundlePct: 5, insiderPct: 9 });
-    expect(result.holders?.earlyBuyers).toEqual([{ wallet: s.bundler, slotOffset: 0, bought: "500", holding: "500" }]);
+    expect(result.holders?.earlyBuyers).toEqual([
+      { wallet: s.bundler, slotOffset: 0, bought: "500", holding: "500", signature: "bundle-buy", sameTxAsCreate: false, txBuyers: 1, fundedBy: null, fresh: false },
+    ]);
     expect(types.indexOf("devStatus")).toBeLessThan(types.indexOf("holders"));
     expect(events).toContainEqual({ type: "step", data: { step: "holders", state: "done" } });
   });

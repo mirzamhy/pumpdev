@@ -20,17 +20,40 @@ function useNow(intervalMs: number): number {
   return now;
 }
 
-function StatsLine({ stats }: { stats: FeedStats }) {
+function Tile({ label, value, hint, children }: { label: string; value: string; hint?: string; children?: React.ReactNode }) {
   return (
-    <p className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted">
-      <span className="inline-flex items-center gap-1.5">
-        <span aria-hidden className={`h-2 w-2 rounded-full ${stats.connected ? "bg-safe" : "bg-warn"}`} />
-        {stats.connected ? "Live" : "Reconnecting to the token feed…"}
-      </span>
-      <span>{stats.seenLastHour} new tokens in the last hour</span>
-      <span>{stats.tracedLastHour} traced</span>
-      {stats.highRiskShare !== null && <span>{Math.round(stats.highRiskShare * 100)}% of traced scored high risk</span>}
-    </p>
+    <div className="rounded-xl border border-line bg-surface px-4 py-3" title={hint}>
+      <p className="text-xs text-muted">{label}</p>
+      <p className="mt-1 font-mono text-xl font-semibold tabular-nums">{value}</p>
+      {children}
+    </div>
+  );
+}
+
+function StatTiles({ stats }: { stats: FeedStats }) {
+  const share = stats.highRiskShare === null ? null : Math.round(stats.highRiskShare * 100);
+  return (
+    <div className="grid grid-cols-2 gap-3 sm:grid-cols-4" aria-label="Feed stats">
+      <div className="rounded-xl border border-line bg-surface px-4 py-3">
+        <p className="text-xs text-muted">Feed</p>
+        <p className="mt-1 inline-flex items-center gap-2 text-xl font-semibold">
+          <span aria-hidden className="relative flex size-2.5">
+            {stats.connected && <span className="absolute inline-flex size-full animate-ping rounded-full bg-safe opacity-60 motion-reduce:hidden" />}
+            <span className={`relative inline-flex size-2.5 rounded-full ${stats.connected ? "bg-safe" : "bg-warn"}`} />
+          </span>
+          {stats.connected ? "Live" : "Reconnecting"}
+        </p>
+      </div>
+      <Tile label="New tokens, last hour" value={String(stats.seenLastHour)} />
+      <Tile label="Traced, last hour" value={String(stats.tracedLastHour)} hint="Traced automatically or opened by someone" />
+      <Tile label="Traced that scored high" value={share === null ? "–" : `${share}%`}>
+        {share !== null && (
+          <span aria-hidden className="mt-2 block h-1 overflow-hidden rounded-full bg-surface-2">
+            <span className="block h-full rounded-full bg-danger" style={{ width: `${share}%` }} />
+          </span>
+        )}
+      </Tile>
+    </div>
   );
 }
 
@@ -87,7 +110,7 @@ export function ScreenerPage() {
         </label>
       </div>
 
-      {feed.data && <StatsLine stats={feed.data.stats} />}
+      {feed.data ? <StatTiles stats={feed.data.stats} /> : <Skeleton className="h-20" />}
 
       {feed.isPending ? (
         <Skeleton className="h-96" />

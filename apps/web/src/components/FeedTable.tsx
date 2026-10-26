@@ -1,3 +1,4 @@
+import { useEffect, useMemo, useRef } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { curveDumped, shortAddress, type FeedItem } from "@pumpfun/shared";
 import { formatMcap, shortAge } from "../lib/format";
@@ -101,12 +102,20 @@ export function FeedTable({ items, now }: { items: FeedItem[]; now: number }) {
   const navigate = useNavigate();
   const wide = useMediaQuery("(min-width: 768px)");
   const open = (mint: string) => void navigate({ to: "/token/$mint", params: { mint } });
+  // Rows that arrive after the first render get a short highlight so new launches catch the eye.
+  const seen = useRef<Set<string> | null>(null);
+  // Computed per data refresh, not per clock tick, so the highlight is not cut short.
+  const fresh = useMemo(() => new Set(seen.current ? items.filter((i) => !seen.current!.has(i.mint)).map((i) => i.mint) : []), [items]);
+  useEffect(() => {
+    seen.current = new Set([...(seen.current ?? []), ...items.map((i) => i.mint)]);
+  }, [items]);
+  const flash = (mint: string) => (fresh.has(mint) ? "row-in" : "");
 
   if (!wide) {
     return (
       <ul className="divide-y divide-line rounded-xl border border-line bg-surface" aria-label="New tokens">
         {items.map((item) => (
-          <li key={item.mint} className="space-y-2 px-4 py-3" onClick={() => open(item.mint)}>
+          <li key={item.mint} className={`space-y-2 px-4 py-3 ${flash(item.mint)}`} onClick={() => open(item.mint)}>
             <div className="flex items-start justify-between gap-3">
               <span className="min-w-0 truncate">
                 <TokenName item={item} />
@@ -144,7 +153,7 @@ export function FeedTable({ items, now }: { items: FeedItem[]; now: number }) {
           {items.map((item) => (
             <tr
               key={item.mint}
-              className={`cursor-pointer hover:bg-surface-2 ${riskLevel(item) === "high" ? "shadow-[inset_3px_0_0_var(--color-danger)]" : ""}`}
+              className={`cursor-pointer hover:bg-surface-2 ${flash(item.mint)} ${riskLevel(item) === "high" ? "shadow-[inset_3px_0_0_var(--color-danger)]" : ""}`}
               onClick={() => open(item.mint)}
             >
               <td className="max-w-64 truncate px-4 py-2.5">

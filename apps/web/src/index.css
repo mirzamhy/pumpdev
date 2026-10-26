@@ -52,7 +52,21 @@ body {
   animation: spin-slow 120s linear infinite;
 }
 
+@keyframes row-in {
+  from {
+    background-color: color-mix(in oklab, var(--color-accent) 22%, transparent);
+  }
+}
+
+.row-in {
+  animation: row-in 2.4s ease-out;
+}
+
 @media (prefers-reduced-motion: reduce) {
+  .row-in {
+    animation: none;
+  }
+
   html {
     scroll-behavior: auto;
   }

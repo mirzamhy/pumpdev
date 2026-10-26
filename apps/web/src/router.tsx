@@ -1,6 +1,7 @@
 import { createRootRoute, createRoute, createRouter, lazyRouteComponent } from "@tanstack/react-router";
 import { Layout } from "./components/Layout";
 import { HomePage } from "./pages/HomePage";
+import { NotFoundPage } from "./pages/NotFoundPage";
 
 const rootRoute = createRootRoute({ component: Layout });
 const indexRoute = createRoute({ getParentRoute: () => rootRoute, path: "/", component: HomePage });
@@ -26,7 +27,10 @@ const walletRoute = createRoute({
   component: lazyRouteComponent(() => import("./pages/WalletPage"), "WalletPage"),
 });
 
-export const router = createRouter({ routeTree: rootRoute.addChildren([indexRoute, screenerRoute, riskyRoute, tokenRoute, walletRoute]) });
+export const router = createRouter({
+  routeTree: rootRoute.addChildren([indexRoute, screenerRoute, riskyRoute, tokenRoute, walletRoute]),
+  defaultNotFoundComponent: NotFoundPage,
+});
 
 declare module "@tanstack/react-router" {
   interface Register {

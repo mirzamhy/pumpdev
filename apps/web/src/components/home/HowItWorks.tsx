@@ -1,8 +1,8 @@
 import { Link } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
 import { shortAddress, type DevToken } from "@pumpfun/shared";
-import { fetchRecent, fetchToken } from "../../lib/api";
-import { exampleSteps, pickExampleMint, type ExampleSteps } from "../../lib/example";
+import type { ExampleSteps } from "../../lib/example";
+import { useExample } from "../../lib/useExample";
+import { LoopVideo } from "../LoopVideo";
 
 const statusDot: Record<DevToken["status"], { color: string; label: string }> = {
   dead_dev_exited: { color: "bg-danger", label: "dead, dev exited" },
@@ -82,15 +82,8 @@ const STEPS: Step[] = [
   },
 ];
 
-function useExample(): ExampleSteps | null {
-  const recent = useQuery({ queryKey: ["recent"], queryFn: fetchRecent });
-  const mint = recent.data ? pickExampleMint(recent.data) : null;
-  const token = useQuery({ queryKey: ["token", mint], queryFn: () => fetchToken(mint!), enabled: mint !== null, staleTime: 5 * 60_000 });
-  return token.data ? exampleSteps(token.data) : null;
-}
-
 export function HowItWorks() {
-  const example = useExample();
+  const example = useExample()?.steps ?? null;
   return (
     <section id="how" aria-labelledby="how-title" className="scroll-mt-20">
       <div className="flex flex-wrap items-end justify-between gap-3">
@@ -110,7 +103,10 @@ export function HowItWorks() {
           </p>
         )}
       </div>
-      <ol className="mt-6 grid gap-4 md:grid-cols-4">
+      <div className="mt-6 hidden overflow-hidden rounded-3xl border border-line md:block">
+        <LoopVideo name="flow" width={1920} height={520} className="block h-auto w-full" />
+      </div>
+      <ol className="mt-4 grid gap-4 md:grid-cols-4">
         {STEPS.map((step, i) => (
           <li key={step.title} className="relative rounded-2xl border border-line bg-surface/80 p-4">
             {i < STEPS.length - 1 && (
@@ -120,7 +116,7 @@ export function HowItWorks() {
               <span className="mr-2 text-accent">{i + 1}.</span>
               {step.title}
             </h3>
-            <p className="mt-1 text-sm text-muted">{step.hint}</p>
+            <p className="mt-1 text-sm text-muted md:hidden">{step.hint}</p>
             {example && <div className="mt-4">{step.body(example)}</div>}
           </li>
         ))}

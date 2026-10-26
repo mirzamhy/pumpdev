@@ -11,9 +11,20 @@ export interface ExampleSteps {
   launches: { mint: string; symbol: string | null; status: DevToken["status"] }[];
 }
 
-/** Newest trace scored high; recent traces arrive newest first. */
-export function pickExampleMint(recent: RecentTrace[]): string | null {
-  return recent.find((r) => r.score >= 60)?.mint ?? null;
+/** Up to `max` high-score candidates, newest first. */
+export function exampleCandidates(recent: RecentTrace[], max = 5): string[] {
+  return recent.filter((r) => r.score >= 60).slice(0, max).map((r) => r.mint);
+}
+
+/** How much of the story a trace can show: earlier launches, funders, wallets seen elsewhere. */
+const richness = (r: TraceResult) =>
+  Number(r.devHistory.length > 0) + Number(r.nodes.some((n) => n.role === "funder")) + Number(r.crosslinks.length > 0);
+
+/** The candidate that shows the most; ties go to the newest. */
+export function chooseExample(results: (TraceResult | undefined)[]): TraceResult | null {
+  let best: TraceResult | null = null;
+  for (const r of results) if (r && (!best || richness(r) > richness(best))) best = r;
+  return best;
 }
 
 export function exampleSteps(r: TraceResult): ExampleSteps {

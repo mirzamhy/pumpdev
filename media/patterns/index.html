@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=2400, height=360" />
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      html, body { width: 2400px; height: 360px; overflow: hidden; background: #07060f; }
+      #root { position: relative; width: 2400px; height: 360px; overflow: hidden; background: #07060f; }
+      svg { position: absolute; inset: 0; }
+    </style>
+  </head>
+  <body>
+    <!-- Three 800x360 panels (runner, recycler, rugger), cropped into separate loops after render -->
+    <div id="root" data-composition-id="patterns" data-start="0" data-duration="6" data-width="2400" data-height="360">
+      <svg id="art" viewBox="0 0 2400 360" width="2400" height="360">
+        <defs>
+          <filter id="glow" x="-300%" y="-300%" width="700%" height="700%">
+            <feGaussianBlur stdDeviation="6" result="b" />
+            <feMerge><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge>
+          </filter>
+        </defs>
+      </svg>
+    </div>
+    <script>
+      const LOOP = 6;
+      const TAU = Math.PI * 2;
+      const NS = "http://www.w3.org/2000/svg";
+      const svg = document.getElementById("art");
+      const el = (tag, attrs, parent) => {
+        const n = document.createElementNS(NS, tag);
+        for (const [k, v] of Object.entries(attrs)) n.setAttribute(k, v);
+        parent.appendChild(n);
+        return n;
+      };
+      const frac = (x) => x - Math.floor(x);
+      const W = 800, H = 360, PAD = 50, STEPS = 9;
+
+      // Each pattern is drawn left to right once per loop, holds, then fades so the loop restarts cleanly.
+      const PATTERNS = [
+        { color: "#8f74ff", f: (x) => 0.18 + 0.62 * x + 0.05 * Math.sin(TAU * x * 3) },
+        { color: "#f5c542", f: (x) => 0.5 + 0.22 * Math.sin(TAU * x * 4) },
+        { color: "#ff6b6b", f: (x) => (x < 0.74 ? 0.22 + 0.66 * Math.pow(x / 0.74, 2) : x < 0.8 ? 0.88 - 0.76 * ((x - 0.74) / 0.06) : 0.12) },
+      ];
+
+      const panels = PATTERNS.map((p, i) => {
+        const g = el("g", { transform: `translate(${i * W} 0)` }, svg);
+        for (let k = 0; k < 4; k++) el("line", { x1: PAD, x2: W - PAD, y1: PAD + k * ((H - 2 * PAD) / 3), y2: PAD + k * ((H - 2 * PAD) / 3), stroke: "#262043", "stroke-width": 1.5 }, g);
+        const area = el("path", { fill: p.color, "fill-opacity": 0.12 }, g);
+        const line = el("polyline", { fill: "none", stroke: p.color, "stroke-width": 4, "stroke-linejoin": "round", "stroke-opacity": 0.9 }, g);
+        const dots = Array.from({ length: STEPS }, () => el("circle", { r: 7, fill: p.color }, g));
+        const head = el("circle", { r: 12, fill: p.color, filter: "url(#glow)" }, g);
+        return { p, area, line, dots, head };
+      });
+
+      const xAt = (k) => PAD + (k / (STEPS - 1)) * (W - 2 * PAD);
+      const yAt = (v) => H - PAD - v * (H - 2 * PAD);
+
+      function draw(t) {
+        const reveal = Math.min(1, t / 0.72);
+        const fade = t > 0.86 ? Math.max(0, 1 - (t - 0.86) / 0.12) : 1;
+        panels.forEach(({ p, area, line, dots, head }) => {
+          const n = Math.max(2, Math.round(160 * reveal));
+          const fine = Array.from({ length: n }, (_, k) => {
+            const x = (k / (n - 1)) * reveal;
+            return [PAD + x * (W - 2 * PAD), yAt(p.f(x))];
+          });
+          const pts = fine.map((q) => q.map((v) => v.toFixed(1)).join(",")).join(" ");
+          line.setAttribute("points", pts);
+          const last = fine[fine.length - 1];
+          area.setAttribute("d", `M${PAD},${H - PAD} L${pts.split(" ").join(" L")} L${last[0].toFixed(1)},${H - PAD} Z`);
+          dots.forEach((d, k) => {
+            const x = k / (STEPS - 1);
+            d.setAttribute("cx", xAt(k).toFixed(1));
+            d.setAttribute("cy", yAt(p.f(x)).toFixed(1));
+            d.setAttribute("opacity", x <= reveal + 1e-6 ? fade.toFixed(3) : "0");
+            d.setAttribute("fill-opacity", (0.35 + 0.5 * x).toFixed(2));
+          });
+          head.setAttribute("cx", last[0].toFixed(1));
+          head.setAttribute("cy", last[1].toFixed(1));
+          for (const node of [area, line, head]) node.setAttribute("opacity", fade.toFixed(3));
+        });
+      }
+
+      const state = { t: 0 };
+      draw(0);
+      const tl = gsap.timeline({ paused: true });
+      tl.to(state, { t: 1, duration: LOOP, ease: "none", onUpdate: () => draw(state.t) }, 0);
+      window.__timelines = window.__timelines || {};
+      window.__timelines["patterns"] = tl;
+    </script>
+  </body>
+</html>

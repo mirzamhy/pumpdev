@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=1920, height=520" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@500;600;700&display=block" rel="stylesheet" />
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      html, body { width: 1920px; height: 520px; overflow: hidden; background: #07060f; }
+      #root { position: relative; width: 1920px; height: 520px; overflow: hidden; background: #07060f; font-family: Inter, sans-serif; }
+      svg { position: absolute; inset: 0; }
+      .num { font-size: 30px; font-weight: 700; fill: #8f74ff; }
+      .title { font-size: 38px; font-weight: 700; fill: #ece9f7; }
+      .sub { font-size: 26px; font-weight: 500; fill: #9d97ba; }
+    </style>
+  </head>
+  <body>
+    <div id="root" data-composition-id="flow" data-start="0" data-duration="6" data-width="1920" data-height="520">
+      <svg id="art" viewBox="0 0 1920 520" width="1920" height="520">
+        <defs>
+          <filter id="glow" x="-100%" y="-100%" width="300%" height="300%">
+            <feGaussianBlur stdDeviation="10" result="b" />
+            <feMerge><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge>
+          </filter>
+          <filter id="dotglow" x="-300%" y="-300%" width="700%" height="700%">
+            <feGaussianBlur stdDeviation="5" result="b" />
+            <feMerge><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge>
+          </filter>
+          <linearGradient id="wire" x1="0" x2="1">
+            <stop offset="0%" stop-color="#6a48f5" stop-opacity="0.2" />
+            <stop offset="50%" stop-color="#8f74ff" stop-opacity="0.9" />
+            <stop offset="100%" stop-color="#6a48f5" stop-opacity="0.2" />
+          </linearGradient>
+        </defs>
+        <g id="bg"></g>
+        <g id="wires"></g>
+        <g id="dots"></g>
+        <g id="tiles"></g>
+      </svg>
+    </div>
+    <script>
+      const LOOP = 6;
+      const TAU = Math.PI * 2;
+      const NS = "http://www.w3.org/2000/svg";
+      const el = (tag, attrs, parent) => {
+        const n = document.createElementNS(NS, tag);
+        for (const [k, v] of Object.entries(attrs)) n.setAttribute(k, v);
+        parent?.appendChild(n);
+        return n;
+      };
+      const frac = (x) => x - Math.floor(x);
+
+      // faint grid of dots for depth
+      const bg = document.getElementById("bg");
+      for (let x = 30; x < 1920; x += 60) for (let y = 30; y < 520; y += 60) el("circle", { cx: x, cy: y, r: 1.4, fill: "#3a3166", "fill-opacity": 0.5 }, bg);
+
+      const STAGES = [
+        { title: "Funding source", sub: "where the SOL came from", icon: "wallet" },
+        { title: "Deployer", sub: "the wallet that launched", icon: "user" },
+        { title: "Linked wallets", sub: "seen in other launches", icon: "nodes" },
+        { title: "Launches", sub: "how earlier tokens ended", icon: "coins" },
+      ];
+      const X0 = 130, GAP = 470, CY = 190, BOX = 150;
+      const icons = {
+        wallet: (g, x, y) => {
+          el("rect", { x: x - 36, y: y - 26, width: 72, height: 52, rx: 10, fill: "none", stroke: "#ece9f7", "stroke-width": 5 }, g);
+          el("rect", { x: x + 8, y: y - 9, width: 28, height: 18, rx: 6, fill: "none", stroke: "#ece9f7", "stroke-width": 5 }, g);
+          el("circle", { cx: x + 20, cy: y, r: 3.5, fill: "#ece9f7" }, g);
+        },
+        user: (g, x, y) => {
+          el("circle", { cx: x, cy: y - 14, r: 15, fill: "none", stroke: "#ece9f7", "stroke-width": 5 }, g);
+          el("path", { d: `M${x - 30},${y + 30} Q${x},${y - 6} ${x + 30},${y + 30}`, fill: "none", stroke: "#ece9f7", "stroke-width": 5, "stroke-linecap": "round" }, g);
+        },
+        nodes: (g, x, y) => {
+          const p = [[x - 26, y + 18], [x + 26, y + 18], [x, y - 24]];
+          el("path", { d: `M${p[0]} L${p[1]} L${p[2]} Z`, fill: "none", stroke: "#ece9f7", "stroke-width": 4 }, g);
+          p.forEach(([a, b]) => el("circle", { cx: a, cy: b, r: 10, fill: "#16132a", stroke: "#ece9f7", "stroke-width": 5 }, g));
+        },
+        coins: (g, x, y) => {
+          [18, 2, -14].forEach((dy) => el("ellipse", { cx: x, cy: y + dy, rx: 30, ry: 11, fill: "#16132a", stroke: "#ece9f7", "stroke-width": 5 }, g));
+        },
+      };
+
+      const tiles = document.getElementById("tiles");
+      const tileEls = STAGES.map((s, i) => {
+        const cx = X0 + BOX / 2 + i * GAP;
+        const g = el("g", {}, tiles);
+        const halo = el("rect", { x: cx - BOX / 2 - 14, y: CY - BOX / 2 - 14, width: BOX + 28, height: BOX + 28, rx: 40, fill: "#6a48f5", filter: "url(#glow)" }, g);
+        const box = el("rect", { x: cx - BOX / 2, y: CY - BOX / 2, width: BOX, height: BOX, rx: 32, fill: "#16132a", stroke: "#8f74ff", "stroke-width": 3 }, g);
+        icons[s.icon](g, cx, CY);
+        const n = el("text", { x: cx - BOX / 2, y: CY + BOX / 2 + 72, class: "num" }, g); n.textContent = `0${i + 1}`;
+        const t = el("text", { x: cx - BOX / 2 + 56, y: CY + BOX / 2 + 72, class: "title" }, g); t.textContent = s.title;
+        const u = el("text", { x: cx - BOX / 2, y: CY + BOX / 2 + 116, class: "sub" }, g); u.textContent = s.sub;
+        return { halo, box, cx };
+      });
+
+      // wires between tiles, particles flow left to right
+      const wires = document.getElementById("wires");
+      const dotsG = document.getElementById("dots");
+      const wireEls = [];
+      for (let i = 0; i < STAGES.length - 1; i++) {
+        const a = tileEls[i].cx + BOX / 2 + 10, b = tileEls[i + 1].cx - BOX / 2 - 10;
+        el("line", { x1: a, y1: CY, x2: b, y2: CY, stroke: "url(#wire)", "stroke-width": 3 }, wires);
+        el("path", { d: `M${b - 14},${CY - 10} L${b},${CY} L${b - 14},${CY + 10}`, fill: "none", stroke: "#8f74ff", "stroke-width": 3, "stroke-linecap": "round" }, wires);
+        const dots = [0, 1, 2].map((k) => ({ c: el("circle", { r: k === 0 ? 7 : 4, fill: "#e6e0ff", filter: "url(#dotglow)" }, dotsG), off: k / 3 }));
+        wireEls.push({ a, b, dots });
+      }
+
+      function draw(t) {
+        // a pulse travels across the four stages once per loop
+        tileEls.forEach((tile, i) => {
+          const d = frac(t - i / 4);
+          const lit = Math.exp(-Math.pow(Math.min(d, 1 - d) * 7, 2));
+          tile.halo.setAttribute("opacity", (0.05 + 0.5 * lit).toFixed(3));
+          tile.box.setAttribute("stroke-opacity", (0.45 + 0.55 * lit).toFixed(3));
+        });
+        wireEls.forEach((w, i) => {
+          w.dots.forEach((d) => {
+            const p = frac(t * 2 + d.off + i * 0.17);
+            d.c.setAttribute("cx", (w.a + (w.b - w.a) * p).toFixed(1));
+            d.c.setAttribute("cy", (CY + 6 * Math.sin(TAU * p)).toFixed(1));
+            d.c.setAttribute("opacity", Math.min(1, p * 5, (1 - p) * 5).toFixed(3));
+          });
+        });
+      }
+
+      const state = { t: 0 };
+      draw(0);
+      const tl = gsap.timeline({ paused: true });
+      tl.to(state, { t: 1, duration: LOOP, ease: "none", onUpdate: () => draw(state.t) }, 0);
+      window.__timelines = window.__timelines || {};
+      window.__timelines["flow"] = tl;
+    </script>
+  </body>
+</html>

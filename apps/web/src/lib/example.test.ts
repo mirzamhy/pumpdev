@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ChainNode, RecentTrace, TraceResult } from "@pumpfun/shared";
-import { exampleSteps, pickExampleMint } from "./example";
+import { chooseExample, exampleCandidates, exampleSteps } from "./example";
 
 const recent = (mint: string, score: number): RecentTrace => ({ mint, name: null, symbol: null, score, level: score >= 60 ? "high" : "low", finishedAt: 0 });
 
@@ -43,17 +43,6 @@ const launch = (mint: string, status: "alive" | "migrated" | "dead_dev_exited") 
   status,
 });
 
-describe("pickExampleMint", () => {
-  it("takes the newest trace that scored high", () => {
-    expect(pickExampleMint([recent("A", 20), recent("B", 60), recent("C", 90)])).toBe("B");
-  });
-
-  it("returns null when nothing scored high", () => {
-    expect(pickExampleMint([recent("A", 59)])).toBeNull();
-    expect(pickExampleMint([])).toBeNull();
-  });
-});
-
 describe("exampleSteps", () => {
   it("uses the first-hop funder, crosslinked wallets first, and three launches", () => {
     const steps = exampleSteps(
@@ -84,5 +73,22 @@ describe("exampleSteps", () => {
 
   it("copes with a dev that has no funder or history", () => {
     expect(exampleSteps(result({ nodes: [node("DEV", 0, "deployer")] }))).toMatchObject({ funder: null, linked: [], launches: [] });
+  });
+});
+
+describe("chooseExample", () => {
+  it("lists high-score candidates newest first, at most five", () => {
+    const rows = [recent("A", 90), recent("B", 10), ...["C", "D", "E", "F", "G"].map((m) => recent(m, 70))];
+    expect(exampleCandidates(rows)).toEqual(["A", "C", "D", "E", "F"]);
+  });
+
+  it("prefers the trace that shows the most, else the newest loaded", () => {
+    const bare = result({});
+    const launches = result({ devHistory: [launch("L1", "dead_dev_exited")] });
+    const full = result({ devHistory: [launch("L1", "dead_dev_exited")], nodes: [node("F1", 1)] });
+    expect(chooseExample([bare, undefined, launches, full])).toBe(full);
+    expect(chooseExample([launches, result({ devHistory: [launch("L2", "alive")] })])).toBe(launches);
+    expect(chooseExample([undefined, bare])).toBe(bare);
+    expect(chooseExample([undefined])).toBeNull();
   });
 });

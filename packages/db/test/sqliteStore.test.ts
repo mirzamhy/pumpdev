@@ -181,7 +181,18 @@ describe("SqliteStore walletView", () => {
   });
 
   it("reports unknown wallets", () => {
-    expect(store.walletView("NEW")).toEqual({ address: "NEW", known: false, chain: [], deployed: [], appearances: [], profile: null });
+    expect(store.walletView("NEW")).toEqual({
+      address: "NEW",
+      known: false,
+      chain: [],
+      deployed: [],
+      appearances: [],
+      profile: null,
+      firstSeenAt: null,
+      cluster: { funder: null, siblings: [], funded: [], repeatBuyers: [], insiders: [] },
+      feedLaunches: [],
+      archetype: { kind: "unclear", evidence: [] },
+    });
   });
 });
 

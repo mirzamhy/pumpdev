@@ -4,13 +4,21 @@ import { formatMcap, shortAge } from "../lib/format";
 import { useMediaQuery } from "../lib/useMediaQuery";
 import { levelTone, toneText } from "../lib/risk";
 import { ScorePill } from "./RiskCard";
-import { Badge } from "./ui";
+import { Badge, TokenAvatar } from "./ui";
 
 function TokenName({ item }: { item: FeedItem }) {
   return (
-    <Link to="/token/$mint" params={{ mint: item.mint }} onClick={(e) => e.stopPropagation()} className="min-w-0 hover:text-accent focus-visible:outline-2 focus-visible:outline-accent">
-      <span className="font-medium">{item.symbol ? `$${item.symbol}` : shortAddress(item.mint)}</span>
-      {item.name && <span className="ml-2 truncate text-sm text-muted">{item.name}</span>}
+    <Link
+      to="/token/$mint"
+      params={{ mint: item.mint }}
+      onClick={(e) => e.stopPropagation()}
+      className="group flex min-w-0 items-center gap-2.5 focus-visible:outline-2 focus-visible:outline-accent"
+    >
+      <TokenAvatar seed={item.mint} label={item.symbol ?? item.name} />
+      <span className="min-w-0 leading-tight">
+        <span className="block truncate font-medium group-hover:text-accent">{item.symbol ? `$${item.symbol}` : shortAddress(item.mint)}</span>
+        {item.name && <span className="block truncate text-xs text-muted">{item.name}</span>}
+      </span>
     </Link>
   );
 }

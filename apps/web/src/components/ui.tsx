@@ -63,3 +63,26 @@ export function Address({ value }: { value: string }) {
     </span>
   );
 }
+
+/** Deterministic two-tone avatar from an address, so every token gets a recognisable mark without loading its image. */
+export function TokenAvatar({ seed, label, size = 32 }: { seed: string; label: string | null; size?: number }) {
+  let h = 0;
+  for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) >>> 0;
+  const hue = h % 360;
+  const hue2 = (hue + 40 + ((h >> 9) % 80)) % 360;
+  const letter = (label ?? seed).replace(/[^a-z0-9]/gi, "").charAt(0).toUpperCase() || "?";
+  return (
+    <span
+      aria-hidden
+      className="inline-flex shrink-0 items-center justify-center rounded-lg font-semibold text-white/90 ring-1 ring-white/10"
+      style={{
+        width: size,
+        height: size,
+        fontSize: size * 0.42,
+        background: `linear-gradient(135deg, hsl(${hue} 70% 45%), hsl(${hue2} 75% 30%))`,
+      }}
+    >
+      {letter}
+    </span>
+  );
+}

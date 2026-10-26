@@ -57,6 +57,17 @@ export function RiskCard({ score, done, quick = null }: { score: RiskScore | nul
   );
 }
 
+const chipTone = {
+  safe: "border-safe/40 bg-safe/10 text-safe",
+  warn: "border-warn/40 bg-warn/10 text-warn",
+  danger: "border-danger/50 bg-danger/15 text-danger",
+} as const;
+
 export function ScorePill({ score, level }: { score: number; level: RiskLevel }) {
-  return <span className={`font-mono text-sm tabular-nums ${toneText[levelTone[level]]}`}>{score}</span>;
+  const tone = levelTone[level];
+  return (
+    <span className={`inline-flex min-w-9 justify-center rounded-md border px-1.5 py-0.5 font-mono text-sm font-semibold tabular-nums ${chipTone[tone]}`} aria-label={`Risk score ${score}, ${level}`}>
+      {score}
+    </span>
+  );
 }

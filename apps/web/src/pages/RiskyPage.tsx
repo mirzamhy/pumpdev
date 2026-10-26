@@ -10,24 +10,39 @@ interface Row {
   wallet: string;
   fact: string;
   when: number | null;
+  /** Number the list is ranked by; drawn as a bar relative to the top row. */
+  value: number;
 }
 
+const RANK = ["bg-danger/20 text-danger", "bg-warn/20 text-warn", "bg-accent/20 text-accent"];
+
 function WalletList({ title, hint, rows, empty }: { title: string; hint: string; rows: Row[]; empty: string }) {
+  const max = Math.max(1, ...rows.map((r) => r.value));
   return (
     <Card title={title}>
       <p className="-mt-1 mb-3 text-xs text-muted">{hint}</p>
       {rows.length === 0 ? (
         <p className="text-sm text-muted">{empty}</p>
       ) : (
-        <ol className="space-y-2 text-sm">
+        <ol className="space-y-2.5 text-sm">
           {rows.map((r, i) => (
-            <li key={r.wallet} className="flex items-baseline gap-3">
-              <span className="w-5 shrink-0 text-right font-mono text-xs text-muted tabular-nums">{i + 1}</span>
+            <li key={r.wallet} className="flex items-center gap-3">
+              <span
+                className={`inline-flex size-6 shrink-0 items-center justify-center rounded-md font-mono text-xs tabular-nums ${RANK[i] ?? "bg-surface-2 text-muted"}`}
+              >
+                {i + 1}
+              </span>
               <span className="min-w-0 flex-1">
-                <Link to="/wallet/$address" params={{ address: r.wallet }} className="font-mono hover:text-accent">
-                  {shortAddress(r.wallet)}
-                </Link>
-                <span className="block text-xs text-muted">{r.fact}</span>
+                <span className="flex items-baseline justify-between gap-2">
+                  <Link to="/wallet/$address" params={{ address: r.wallet }} className="font-mono hover:text-accent">
+                    {shortAddress(r.wallet)}
+                  </Link>
+                  <span className="font-mono text-xs tabular-nums text-text">{r.value}</span>
+                </span>
+                <span aria-hidden className="mt-1 block h-1 overflow-hidden rounded-full bg-surface-2">
+                  <span className="block h-full rounded-full bg-gradient-to-r from-accent-strong to-danger" style={{ width: `${(r.value / max) * 100}%` }} />
+                </span>
+                <span className="mt-1 block text-xs text-muted">{r.fact}</span>
               </span>
               {r.when !== null && <span className="shrink-0 text-xs text-muted">{relTime(r.when)}</span>}
             </li>
@@ -59,25 +74,25 @@ export function RiskyPage() {
           title="Devs with the most dead launches"
           hint="Earlier launches that died while the dev sold out, from dev histories of traced tokens."
           empty="No dev has two dead launches in our traces yet."
-          rows={d.serialDevs.map((r) => ({ wallet: r.wallet, fact: `${plural(r.dead, "launch", "launches")} died with the dev exiting, out of ${r.total} seen`, when: r.lastAt }))}
+          rows={d.serialDevs.map((r) => ({ wallet: r.wallet, fact: `${plural(r.dead, "launch", "launches")} died with the dev exiting, out of ${r.total} seen`, when: r.lastAt, value: r.dead }))}
         />
         <WalletList
           title="Funders behind dead launches"
           hint="Wallets that funded devs whose launches died, counted through traced funding chains."
           empty="No funder links to two dead launches yet."
-          rows={d.funders.map((r) => ({ wallet: r.wallet, fact: `Funded ${plural(r.devs, "dev")} with ${plural(r.deadLaunches, "dead launch", "dead launches")}`, when: null }))}
+          rows={d.funders.map((r) => ({ wallet: r.wallet, fact: `Funded ${plural(r.devs, "dev")} with ${plural(r.deadLaunches, "dead launch", "dead launches")}`, when: null, value: r.deadLaunches }))}
         />
         <WalletList
           title="Early buyers in many launches"
           hint="Bought in the launch block or the next two slots of traced tokens."
           empty="No wallet bought early in three traced launches yet."
-          rows={d.snipers.map((r) => ({ wallet: r.wallet, fact: `Bought early in ${plural(r.launches, "traced launch", "traced launches")}`, when: null }))}
+          rows={d.snipers.map((r) => ({ wallet: r.wallet, fact: `Bought early in ${plural(r.launches, "traced launch", "traced launches")}`, when: null, value: r.launches }))}
         />
         <WalletList
           title="Most launches in the last 24 hours"
           hint="Wallets that signed the most pump.fun creates seen by the live screener. Launchpad tools sign for their users and can appear here."
           empty="No wallet launched three tokens in the last day."
-          rows={d.launchers.map((r) => ({ wallet: r.wallet, fact: `Launched ${plural(r.launches, "token")}`, when: r.lastAt }))}
+          rows={d.launchers.map((r) => ({ wallet: r.wallet, fact: `Launched ${plural(r.launches, "token")}`, when: r.lastAt, value: r.launches }))}
         />
       </div>
     );

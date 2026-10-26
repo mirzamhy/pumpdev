@@ -8,24 +8,23 @@
       * { margin: 0; padding: 0; box-sizing: border-box; }
       html, body { width: 2400px; height: 360px; overflow: hidden; background: #07060f; }
       #root { position: relative; width: 2400px; height: 360px; overflow: hidden; background: #07060f; }
-      svg { position: absolute; inset: 0; }
+      svg { position: absolute; inset: 0; font-family: "JetBrains Mono", ui-monospace, monospace; }
     </style>
   </head>
   <body>
-    <!-- Three 800x360 panels (runner, recycler, rugger), cropped into separate loops after render -->
-    <div id="root" data-composition-id="patterns" data-start="0" data-duration="6" data-width="2400" data-height="360">
+    <!-- Three 800x360 candlestick panels (runner, recycler, rugger), cropped into separate loops after render -->
+    <div id="root" data-composition-id="patterns" data-start="0" data-duration="7" data-width="2400" data-height="360">
       <svg id="art" viewBox="0 0 2400 360" width="2400" height="360">
         <defs>
-          <filter id="glow" x="-300%" y="-300%" width="700%" height="700%">
-            <feGaussianBlur stdDeviation="6" result="b" />
+          <filter id="glow" x="-200%" y="-200%" width="500%" height="500%">
+            <feGaussianBlur stdDeviation="5" result="b" />
             <feMerge><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge>
           </filter>
         </defs>
       </svg>
     </div>
     <script>
-      const LOOP = 6;
-      const TAU = Math.PI * 2;
+      const LOOP = 7;
       const NS = "http://www.w3.org/2000/svg";
       const svg = document.getElementById("art");
       const el = (tag, attrs, parent) => {
@@ -34,52 +33,139 @@
         parent.appendChild(n);
         return n;
       };
-      const frac = (x) => x - Math.floor(x);
-      const W = 800, H = 360, PAD = 50, STEPS = 9;
+      const UP = "#3ddc84", DOWN = "#ff6b6b";
+      const W = 800, H = 360, L = 40, R = 110, TOP = 30, PRICE_H = 230, VOL_TOP = 278, VOL_H = 52, N = 42;
 
-      // Each pattern is drawn left to right once per loop, holds, then fades so the loop restarts cleanly.
+      // Seeded noise so every render draws the same chart.
+      function rng(seed) {
+        let s = seed >>> 0;
+        return () => ((s = (s * 1664525 + 1013904223) >>> 0) / 4294967296);
+      }
+      // Close prices follow keyframes [candle, value] with noise; wicks and volume come from the move size.
+      function series(keys, seed, noise, overrides = {}) {
+        const r = rng(seed);
+        const at = (i) => {
+          for (let k = 1; k < keys.length; k++) {
+            const [i0, v0] = keys[k - 1], [i1, v1] = keys[k];
+            if (i <= i1) return v0 + (v1 - v0) * ((i - i0) / (i1 - i0));
+          }
+          return keys[keys.length - 1][1];
+        };
+        const out = [];
+        let prev = keys[0][1];
+        for (let i = 0; i < N; i++) {
+          const o = prev;
+          const c = overrides[i] ?? Math.max(0.02, at(i) + (r() - 0.5) * noise);
+          const body = Math.abs(c - o);
+          const hi = Math.max(o, c) + r() * (noise * 0.6 + body * 0.3);
+          const lo = Math.max(0.01, Math.min(o, c) - r() * (noise * 0.6 + body * 0.3));
+          out.push({ o, c, hi, lo, v: 0.15 + body * 4 + r() * 0.25 });
+          prev = c;
+        }
+        return out;
+      }
+
       const PATTERNS = [
-        { color: "#8f74ff", f: (x) => 0.18 + 0.62 * x + 0.05 * Math.sin(TAU * x * 3) },
-        { color: "#f5c542", f: (x) => 0.5 + 0.22 * Math.sin(TAU * x * 4) },
-        { color: "#ff6b6b", f: (x) => (x < 0.74 ? 0.22 + 0.66 * Math.pow(x / 0.74, 2) : x < 0.8 ? 0.88 - 0.76 * ((x - 0.74) / 0.06) : 0.12) },
+        {
+          name: "RUNNER",
+          tag: "#8f74ff",
+          // Rises in legs with real pullbacks and a sideways stretch, not a staircase.
+          data: series([[0, 0.1], [8, 0.3], [12, 0.2], [19, 0.46], [23, 0.34], [30, 0.4], [33, 0.37], [38, 0.7], [41, 0.62]], 7, 0.06),
+          marks: [],
+        },
+        {
+          name: "RECYCLER",
+          tag: "#f5c542",
+          // Same playbook three times: small pump, dump, relaunch under a new ticker.
+          data: series([[0, 0.12], [8, 0.52], [13, 0.08], [14, 0.12], [21, 0.48], [27, 0.07], [28, 0.12], [36, 0.55], [41, 0.08]], 11, 0.05, { 13: 0.06, 27: 0.06 }),
+          marks: [14, 28],
+        },
+        {
+          name: "RUGGER",
+          tag: "#ff6b6b",
+          // Smooth, suspiciously clean climb, then one candle takes it to zero.
+          data: series([[0, 0.1], [29, 0.8], [30, 0.82], [41, 0.04]], 5, 0.025, Object.fromEntries([[31, 0.05], ...Array.from({ length: 10 }, (_, k) => [32 + k, 0.035 + (k % 3) * 0.004])])),
+          marks: [],
+          crash: 31,
+        },
       ];
 
-      const panels = PATTERNS.map((p, i) => {
-        const g = el("g", { transform: `translate(${i * W} 0)` }, svg);
-        for (let k = 0; k < 4; k++) el("line", { x1: PAD, x2: W - PAD, y1: PAD + k * ((H - 2 * PAD) / 3), y2: PAD + k * ((H - 2 * PAD) / 3), stroke: "#262043", "stroke-width": 1.5 }, g);
-        const area = el("path", { fill: p.color, "fill-opacity": 0.12 }, g);
-        const line = el("polyline", { fill: "none", stroke: p.color, "stroke-width": 4, "stroke-linejoin": "round", "stroke-opacity": 0.9 }, g);
-        const dots = Array.from({ length: STEPS }, () => el("circle", { r: 7, fill: p.color }, g));
-        const head = el("circle", { r: 12, fill: p.color, filter: "url(#glow)" }, g);
-        return { p, area, line, dots, head };
+      const cw = (W - L - R) / N;
+      const xAt = (i) => L + i * cw + cw / 2;
+      const yAt = (v) => TOP + PRICE_H - v * PRICE_H;
+
+      const panels = PATTERNS.map((p, pi) => {
+        const g = el("g", { transform: `translate(${pi * W} 0)` }, svg);
+        for (let k = 0; k <= 4; k++) {
+          const y = TOP + (k * PRICE_H) / 4;
+          el("line", { x1: L, x2: W - R + 10, y1: y, y2: y, stroke: "#1b1733", "stroke-width": 1 }, g);
+        }
+        el("line", { x1: L, x2: W - R + 10, y1: VOL_TOP + VOL_H, y2: VOL_TOP + VOL_H, stroke: "#262043", "stroke-width": 1 }, g);
+        const marks = p.marks.map((i) => {
+          const x = L + i * cw;
+          const m = el("g", {}, g);
+          el("line", { x1: x, x2: x, y1: TOP - 6, y2: VOL_TOP + VOL_H, stroke: p.tag, "stroke-opacity": 0.45, "stroke-dasharray": "4 5", "stroke-width": 1.5 }, m);
+          const t = el("text", { x: x + 6, y: TOP + 8, fill: p.tag, "font-size": 15, "fill-opacity": 0.85 }, m);
+          t.textContent = "new token";
+          return { i, m };
+        });
+        const candles = p.data.map((d) => {
+          const up = d.c >= d.o;
+          const col = up ? UP : DOWN;
+          const cg = el("g", {}, g);
+          const wick = el("line", { x1: 0, x2: 0, stroke: col, "stroke-width": 2 }, cg);
+          const body = el("rect", { fill: col, "fill-opacity": up ? 0.9 : 0.95, rx: 1.5 }, cg);
+          const vol = el("rect", { fill: col, "fill-opacity": 0.28 }, cg);
+          return { d, cg, wick, body, vol };
+        });
+        const priceLine = el("line", { x1: L, x2: W - R + 10, stroke: p.tag, "stroke-dasharray": "3 5", "stroke-width": 1.5, "stroke-opacity": 0.7 }, g);
+        const pill = el("g", {}, g);
+        el("rect", { x: W - R + 14, y: -14, width: 84, height: 28, rx: 8, fill: p.tag }, pill);
+        const pillText = el("text", { x: W - R + 56, y: 6, "text-anchor": "middle", fill: "#07060f", "font-size": 15, "font-weight": 700 }, pill);
+        const label = el("text", { x: L, y: H - 6, fill: p.tag, "font-size": 15, "font-weight": 700, "letter-spacing": 2 }, g);
+        label.textContent = p.name;
+        let flash = null;
+        if (p.crash !== undefined) {
+          flash = el("text", { x: xAt(p.crash) + 14, y: yAt(0.42), fill: DOWN, "font-size": 18, "font-weight": 700, filter: "url(#glow)" }, g);
+          flash.textContent = "-94% dev sold";
+        }
+        return { p, g, marks, candles, priceLine, pill, pillText, flash };
       });
 
-      const xAt = (k) => PAD + (k / (STEPS - 1)) * (W - 2 * PAD);
-      const yAt = (v) => H - PAD - v * (H - 2 * PAD);
+      // Max price used to label the pill as a market cap in SOL.
+      const mcap = (v) => `${Math.round(28 + v * 420)} SOL`;
 
       function draw(t) {
-        const reveal = Math.min(1, t / 0.72);
-        const fade = t > 0.86 ? Math.max(0, 1 - (t - 0.86) / 0.12) : 1;
-        panels.forEach(({ p, area, line, dots, head }) => {
-          const n = Math.max(2, Math.round(160 * reveal));
-          const fine = Array.from({ length: n }, (_, k) => {
-            const x = (k / (n - 1)) * reveal;
-            return [PAD + x * (W - 2 * PAD), yAt(p.f(x))];
+        const reveal = Math.min(1, t / 0.8) * N; // candles shown, fractional = forming candle
+        const fade = t > 0.88 ? Math.max(0, 1 - (t - 0.88) / 0.1) : 1;
+        panels.forEach(({ p, g, marks, candles, priceLine, pill, pillText, flash }) => {
+          g.setAttribute("opacity", fade.toFixed(3));
+          let last = candles[0].d.o;
+          candles.forEach(({ d, cg, wick, body, vol }, i) => {
+            const shown = reveal - i;
+            if (shown <= 0) return cg.setAttribute("opacity", "0");
+            cg.setAttribute("opacity", "1");
+            const k = Math.min(1, shown); // forming candle grows from open to close
+            const c = d.o + (d.c - d.o) * k;
+            const hi = Math.max(d.o, c) + (d.hi - Math.max(d.o, d.c)) * k;
+            const lo = Math.min(d.o, c) - (Math.min(d.o, d.c) - d.lo) * k;
+            const x = xAt(i), bw = cw * 0.62;
+            wick.setAttribute("x1", x); wick.setAttribute("x2", x);
+            wick.setAttribute("y1", yAt(hi).toFixed(1)); wick.setAttribute("y2", yAt(lo).toFixed(1));
+            const yTop = yAt(Math.max(d.o, c)), yBot = yAt(Math.min(d.o, c));
+            body.setAttribute("x", (x - bw / 2).toFixed(1)); body.setAttribute("width", bw.toFixed(1));
+            body.setAttribute("y", yTop.toFixed(1)); body.setAttribute("height", Math.max(2, yBot - yTop).toFixed(1));
+            const vh = Math.min(1, d.v) * VOL_H * k;
+            vol.setAttribute("x", (x - bw / 2).toFixed(1)); vol.setAttribute("width", bw.toFixed(1));
+            vol.setAttribute("y", (VOL_TOP + VOL_H - vh).toFixed(1)); vol.setAttribute("height", vh.toFixed(1));
+            last = c;
           });
-          const pts = fine.map((q) => q.map((v) => v.toFixed(1)).join(",")).join(" ");
-          line.setAttribute("points", pts);
-          const last = fine[fine.length - 1];
-          area.setAttribute("d", `M${PAD},${H - PAD} L${pts.split(" ").join(" L")} L${last[0].toFixed(1)},${H - PAD} Z`);
-          dots.forEach((d, k) => {
-            const x = k / (STEPS - 1);
-            d.setAttribute("cx", xAt(k).toFixed(1));
-            d.setAttribute("cy", yAt(p.f(x)).toFixed(1));
-            d.setAttribute("opacity", x <= reveal + 1e-6 ? fade.toFixed(3) : "0");
-            d.setAttribute("fill-opacity", (0.35 + 0.5 * x).toFixed(2));
-          });
-          head.setAttribute("cx", last[0].toFixed(1));
-          head.setAttribute("cy", last[1].toFixed(1));
-          for (const node of [area, line, head]) node.setAttribute("opacity", fade.toFixed(3));
+          const y = yAt(last).toFixed(1);
+          priceLine.setAttribute("y1", y); priceLine.setAttribute("y2", y);
+          pill.setAttribute("transform", `translate(0 ${y})`);
+          pillText.textContent = mcap(last);
+          marks.forEach(({ i, m }) => m.setAttribute("opacity", reveal > i ? "1" : "0"));
+          if (flash) flash.setAttribute("opacity", reveal > p.crash + 0.6 ? "1" : "0");
         });
       }
 

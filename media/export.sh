@@ -6,15 +6,15 @@ cd "$(dirname "$0")"
 DEST=../apps/web/public/media
 mkdir -p "$DEST"
 
-web() { # input, output name, optional crop filter, scale width
-  local in=$1 name=$2 vf=$3
+web() { # input, output name, filter, poster time (default 2s)
+  local in=$1 name=$2 vf=$3 at=${4:-2}
   ffmpeg -y -loglevel error -i "$in" -an -vf "$vf" -c:v libx264 -preset slow -crf 27 -pix_fmt yuv420p -profile:v high -movflags +faststart "$DEST/$name.mp4"
-  ffmpeg -y -loglevel error -ss 2 -i "$in" -frames:v 1 -vf "$vf" -q:v 4 "$DEST/$name.jpg"
+  ffmpeg -y -loglevel error -ss "$at" -i "$in" -frames:v 1 -vf "$vf" -q:v 4 "$DEST/$name.jpg"
 }
 
 web out/hero.mp4 hero "scale=1200:-2"
 web out/flow.mp4 flow "scale=1600:-2"
-web out/patterns.mp4 pattern-runner "crop=800:360:0:0"
-web out/patterns.mp4 pattern-recycler "crop=800:360:800:0"
-web out/patterns.mp4 pattern-rugger "crop=800:360:1600:0"
+web out/patterns.mp4 pattern-runner "crop=800:360:0:0" 5.4
+web out/patterns.mp4 pattern-recycler "crop=800:360:800:0" 5.4
+web out/patterns.mp4 pattern-rugger "crop=800:360:1600:0" 5.4
 ls -la "$DEST"

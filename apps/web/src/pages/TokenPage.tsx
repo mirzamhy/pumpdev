@@ -30,15 +30,23 @@ export function TokenPage() {
   const quick = useQuery({ queryKey: ["quick", mint], queryFn: () => fetchQuick(mint), enabled: !view.score && !view.done, staleTime: 30_000, retry: false });
 
   if (view.error && !view.token) {
+    // Wallets pasted into the search box land here first.
+    const notToken = /not a pump\.fun token/i.test(view.error);
     return (
       <div className="mx-auto max-w-xl py-16 text-center">
         <h1 className="text-xl font-semibold">Couldn't trace this token</h1>
         <p className="mt-2 text-muted">{view.error}</p>
-        <div className="mt-6 flex justify-center gap-3">
-          <button type="button" onClick={retry} className="rounded-lg border border-line px-4 py-2 text-sm hover:border-accent">
-            Try again
-          </button>
-          <Link to="/" className="rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-bg">
+        <div className="mt-6 flex flex-wrap justify-center gap-3">
+          {notToken ? (
+            <Link to="/wallet/$address" params={{ address: mint }} className="rounded-lg bg-accent-strong px-4 py-2 text-sm font-semibold text-white hover:brightness-110">
+              Open as a wallet
+            </Link>
+          ) : (
+            <button type="button" onClick={retry} className="rounded-lg border border-line px-4 py-2 text-sm hover:border-accent">
+              Try again
+            </button>
+          )}
+          <Link to="/" className={notToken ? "rounded-lg border border-line px-4 py-2 text-sm hover:border-accent" : "rounded-lg bg-accent-strong px-4 py-2 text-sm font-semibold text-white hover:brightness-110"}>
             New search
           </Link>
         </div>

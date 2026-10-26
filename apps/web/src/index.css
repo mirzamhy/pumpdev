@@ -1,16 +1,21 @@
 @import "tailwindcss";
 
 @theme {
-  --color-bg: #0a0d0c;
-  --color-surface: #111614;
-  --color-surface-2: #182019;
-  --color-line: #243029;
-  --color-text: #e6ede8;
-  --color-muted: #8fa096;
+  --color-bg: #07060f;
+  --color-surface: #0e0c1a;
+  --color-surface-2: #16132a;
+  --color-line: #262043;
+  --color-text: #ece9f7;
+  --color-muted: #9d97ba;
   --color-safe: #3ddc84;
   --color-warn: #f5c542;
   --color-danger: #ff6b6b;
-  --color-accent: #7cf5b4;
+  /* Text, links, borders and focus rings; 5.6:1 on surface. */
+  --color-accent: #8f74ff;
+  /* Button fill under white text; 5.4:1. */
+  --color-accent-strong: #6a48f5;
+  /* Gradient end and soft highlights. */
+  --color-accent-soft: #b9a4ff;
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, monospace;
 }
@@ -21,7 +26,37 @@ body {
   color: var(--color-text);
 }
 
+html {
+  scroll-behavior: smooth;
+}
+
 body {
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
+}
+
+.text-gradient {
+  background: linear-gradient(90deg, #f3f0ff 0%, var(--color-accent-soft) 45%, var(--color-accent) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+@keyframes spin-slow {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.spin-slow {
+  animation: spin-slow 120s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  .spin-slow {
+    animation: none;
+  }
 }

@@ -254,3 +254,60 @@ describe("quick score", () => {
     expect(store.feedItem("MISSING", NOW)).toBeNull();
   });
 });
+
+describe("developer cluster", () => {
+  const wallet = (address: string, funder: string | null, terminal: "high_activity" | null = null) =>
+    store.putWallet({ address, funderResolved: true, funder, fundingSignature: null, fundingAmountLamports: null, fundedAt: null, terminal, firstSeenAt: NOW - 50_000, fetchedAt: NOW });
+  const nodeOf = (address: string, depth: number, role: "deployer" | "funder") => ({
+    address, depth, role, chainRoot: "X", fundedBy: null, fundingAmountLamports: null, fundedAt: null, fundingSignature: null, terminal: null,
+  });
+
+  it("finds wallets with the same funder, wallets it funded, repeat early buyers and insiders", () => {
+    wallet("DEVA", "BOSS");
+    wallet("BOSS", null);
+    wallet("DEVB", "BOSS");
+    wallet("DEVC", "BOSS");
+    wallet("KID", "DEVA");
+    store.saveResult(result("B1", "DEVB", { devHistory: [devToken("B0", "dead_dev_exited")] }));
+    const early = (mint: string, wallets: string[]) =>
+      ({ earlyBuyers: wallets.map((w) => ({ wallet: w, slotOffset: 0, bought: "1", holding: "1" })) }) as unknown as TraceResult["holders"];
+    store.saveResult(result("A1", "DEVA", { holders: early("A1", ["SNIPE", "ONCE"]), devStatus: { transfers: [{ to: "PAL" }] } as unknown as TraceResult["devStatus"] }));
+    store.saveResult(result("A2", "DEVA", { holders: early("A2", ["SNIPE"]) }));
+    store.insertFeedToken(feedToken("A3", { creator: "DEVA", createdAt: NOW - 100 }));
+
+    const v = store.walletView("DEVA", NOW);
+    expect(v.firstSeenAt).toBe(NOW - 50_000);
+    expect(v.cluster.funder).toBe("BOSS");
+    expect(v.cluster.siblings).toEqual([
+      { wallet: "DEVB", count: 2, dead: 1 },
+      { wallet: "DEVC", count: 0, dead: 0 },
+    ]);
+    expect(v.cluster.funded).toEqual([{ wallet: "KID", count: 0 }]);
+    expect(v.cluster.repeatBuyers).toEqual([{ wallet: "SNIPE", count: 2 }]);
+    expect(v.cluster.insiders).toEqual([{ wallet: "PAL", count: 1 }]);
+    expect(v.feedLaunches.map((f) => f.mint)).toEqual(["A3"]);
+    expect(v.known).toBe(true);
+  });
+
+  it("ignores exchange funders and labels the dev from its launches", () => {
+    wallet("DEVX", "CEX");
+    wallet("CEX", null, "high_activity");
+    wallet("OTHER", "CEX");
+    store.saveResult(
+      result("X1", "DEVX", { devHistory: ["D1", "D2", "D3"].map((m) => devToken(m, "dead_dev_exited")), devProfile: profile, nodes: [nodeOf("DEVX", 0, "deployer")] }),
+    );
+    const v = store.walletView("DEVX", NOW);
+    expect(v.cluster.funder).toBeNull();
+    expect(v.cluster.siblings).toEqual([]);
+    expect(v.archetype.kind).toBe("rugger");
+    expect(v.archetype.evidence[0]).toBe("3 of 4 launches died with the dev exiting.");
+  });
+
+  it("knows a wallet only seen in the live feed", () => {
+    store.insertFeedToken(feedToken("F1", { creator: "NEWDEV" }));
+    const v = store.walletView("NEWDEV", NOW);
+    expect(v.known).toBe(true);
+    expect(v.archetype.kind).toBe("unclear");
+    expect(v.feedLaunches[0]).toMatchObject({ mint: "F1", quick: { score: 0 } });
+  });
+});

@@ -1,10 +1,12 @@
 import Database from "better-sqlite3";
-import { computeQuickScore, type ParsedTx, type RepeatSniper, type SocialKeys, type Store, type TaintedFunder, type TokenMetaRecord, type WalletRecord } from "@pumpfun/core";
+import { classifyDev, computeQuickScore, type ParsedTx, type RepeatSniper, type SocialKeys, type Store, type TaintedFunder, type TokenMetaRecord, type WalletRecord } from "@pumpfun/core";
 import {
   curveDumped,
   type ChainNode,
+  type ClusterWallet,
   type Crosslink,
   type DevProfile,
+  type FeedLaunch,
   type FeedStats,
   type FeedTab,
   type JobState,
@@ -53,6 +55,7 @@ const rowToWallet = (r: WalletRow): WalletRecord => ({
 
 const placeholders = (n: number) => Array.from({ length: n }, () => "?").join(",");
 const MAX_WALLET_CHAIN = 6;
+const CLUSTER_LIMIT = 20;
 
 const HOUR = 3600;
 const DAY = 86_400;
@@ -578,7 +581,52 @@ export class SqliteStore implements Store {
     return riskyWallets(this.db, now);
   }
 
-  walletView(address: string): WalletView {
+  /** This creator's tokens in the live feed, newest first, with quick scores. */
+  feedByCreator(creator: string, now: number): FeedRow[] {
+    const raw = this.db
+      .prepare(
+        `SELECT ${FEED_COLUMNS} FROM feed_tokens f LEFT JOIN trace_results tr ON tr.mint = f.mint
+         WHERE f.creator = @creator ORDER BY f.created_at DESC LIMIT 100`,
+      )
+      .all({ creator, daySince: now - DAY }) as FeedRowRaw[];
+    return this.withQuick(raw.map(rawToFeedRow), now);
+  }
+
+  /** Wallets around one address: same funder, funded by it, repeat early buyers and insiders of its launches. */
+  private walletCluster(address: string, self: WalletRecord | null): WalletView["cluster"] {
+    const launchesOf = `(SELECT COUNT(*) FROM tokens t WHERE t.deployer = w.address)
+      + (SELECT COUNT(*) FROM feed_tokens f WHERE f.creator = w.address AND NOT EXISTS (SELECT 1 FROM tokens t2 WHERE t2.mint = f.mint))`;
+    // An exchange funds everyone, so it says nothing about common ownership.
+    const funder = self?.funder && this.getWallet(self.funder)?.terminal !== "high_activity" ? self.funder : null;
+    const siblings = funder
+      ? (this.db
+          .prepare(
+            `SELECT w.address AS wallet, ${launchesOf} AS count,
+               (SELECT COUNT(*) FROM dev_tokens dt WHERE dt.deployer = w.address AND dt.status = 'dead_dev_exited') AS dead
+             FROM wallets w WHERE w.funder = ? AND w.address != ? ORDER BY count DESC, dead DESC LIMIT ${CLUSTER_LIMIT}`,
+          )
+          .all(funder, address) as ClusterWallet[])
+      : [];
+    const funded = this.db
+      .prepare(`SELECT w.address AS wallet, ${launchesOf} AS count FROM wallets w WHERE w.funder = ? ORDER BY count DESC LIMIT ${CLUSTER_LIMIT}`)
+      .all(address) as ClusterWallet[];
+    const repeatBuyers = this.db
+      .prepare(
+        `SELECT eb.wallet AS wallet, COUNT(DISTINCT eb.mint) AS count FROM early_buyers eb JOIN tokens t ON t.mint = eb.mint
+         WHERE t.deployer = ? AND eb.slot_offset <= 2 AND eb.wallet != ?
+         GROUP BY eb.wallet HAVING count >= 2 ORDER BY count DESC LIMIT ${CLUSTER_LIMIT}`,
+      )
+      .all(address, address) as ClusterWallet[];
+    const insiders = this.db
+      .prepare(
+        `SELECT tw.wallet AS wallet, COUNT(DISTINCT tw.mint) AS count FROM trace_wallets tw JOIN tokens t ON t.mint = tw.mint
+         WHERE t.deployer = ? AND tw.role = 'insider' GROUP BY tw.wallet ORDER BY count DESC LIMIT ${CLUSTER_LIMIT}`,
+      )
+      .all(address) as ClusterWallet[];
+    return { funder, siblings, funded, repeatBuyers, insiders };
+  }
+
+  walletView(address: string, now = Math.floor(Date.now() / 1000)): WalletView {
     const deployed = this.db
       .prepare(
         `SELECT t.mint AS mint, t.name AS name, t.symbol AS symbol, t.created_at AS createdAt, dt.status AS status
@@ -626,8 +674,40 @@ export class SqliteStore implements Store {
       .get(address) as { profile: string | null } | undefined;
     const profile = profileRow?.profile ? (JSON.parse(profileRow.profile) as DevProfile) : null;
 
-    const known = chain.length > 0 || deployed.length > 0 || appearances.length > 0;
-    return { address, known, chain, deployed, appearances, profile };
+    const self = this.getWallet(address);
+    const cluster = this.walletCluster(address, self);
+    const feedLaunches: FeedLaunch[] = this.feedByCreator(address, now).map((r) => ({
+      mint: r.mint,
+      name: r.name,
+      symbol: r.symbol,
+      createdAt: r.createdAt,
+      progressPct: r.progressPct,
+      peakProgressPct: r.peakProgressPct,
+      complete: r.complete,
+      migratedAt: r.migratedAt,
+      recycledSocials: r.recycledSocials,
+      quick: r.quick,
+      score: r.score,
+      level: r.level,
+    }));
+
+    const tracedMints = new Set(deployed.map((d) => d.mint));
+    const feedOnly = feedLaunches.filter((f) => !tracedMints.has(f.mint));
+    const archetype = classifyDev({
+      launches: deployed.length + feedOnly.length,
+      dead: deployed.filter((d) => d.status === "dead_dev_exited").length,
+      migrated: deployed.filter((d) => d.status === "migrated").length + feedOnly.filter((f) => f.complete || f.migratedAt !== null).length,
+      dumped: feedLaunches.filter((f) => curveDumped(f)).length,
+      fastSells: profile?.fastSells ?? 0,
+      soldObserved: profile?.soldObserved ?? 0,
+      launches24h: feedLaunches.filter((f) => f.createdAt > now - DAY).length,
+      siblings: cluster.siblings.length,
+      repeatBuyers: cluster.repeatBuyers.length,
+      recycled: feedLaunches.filter((f) => f.recycledSocials).length,
+    });
+
+    const known = chain.length > 0 || deployed.length > 0 || appearances.length > 0 || feedLaunches.length > 0;
+    return { address, known, chain, deployed, appearances, profile, firstSeenAt: self?.firstSeenAt ?? null, cluster, feedLaunches, archetype };
   }
 }
 

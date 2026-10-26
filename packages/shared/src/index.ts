@@ -255,6 +255,56 @@ export interface WalletView {
   appearances: { mint: string; symbol: string | null; role: Crosslink["role"] }[];
   /** From the newest trace where this wallet deployed the token. */
   profile: DevProfile | null;
+  /** Oldest activity of this wallet, when a trace cached it. */
+  firstSeenAt: number | null;
+  cluster: WalletCluster;
+  /** This wallet's launches seen by the live feed, traced or not. */
+  feedLaunches: FeedLaunch[];
+  archetype: DevArchetype;
+}
+
+export interface ClusterWallet {
+  wallet: string;
+  /** Launches or appearances, depending on the list. */
+  count: number;
+  /** For siblings: launches that died with the dev exiting. */
+  dead?: number;
+}
+
+export interface WalletCluster {
+  /** The funder shared with the siblings; null when unknown or an exchange. */
+  funder: string | null;
+  /** Other dev wallets first funded by the same funder. */
+  siblings: ClusterWallet[];
+  /** Wallets this address funded first. */
+  funded: ClusterWallet[];
+  /** Wallets that bought within two blocks of launch in 2+ of this dev's tokens. */
+  repeatBuyers: ClusterWallet[];
+  /** Wallets the dev sent tokens to, across traced launches. */
+  insiders: ClusterWallet[];
+}
+
+export interface FeedLaunch {
+  mint: string;
+  name: string | null;
+  symbol: string | null;
+  createdAt: number;
+  progressPct: number;
+  peakProgressPct: number;
+  complete: boolean;
+  migratedAt: number | null;
+  recycledSocials: boolean;
+  quick: QuickScore;
+  score: number | null;
+  level: RiskLevel | null;
+}
+
+export type DevArchetypeKind = "runner" | "recycler" | "rugger" | "unclear";
+
+export interface DevArchetype {
+  kind: DevArchetypeKind;
+  /** Plain-English reasons behind the label; empty when unclear. */
+  evidence: string[];
 }
 
 export type FeedTab = "new" | "hot" | "traced";

@@ -101,7 +101,7 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
     return row.quick;
   });
 
-  app.get<{ Params: { address: string } }>("/api/wallet/:address", async (req) => store.walletView(req.params.address));
+  app.get<{ Params: { address: string } }>("/api/wallet/:address", async (req) => store.walletView(req.params.address, now()));
 
   app.get("/api/recent", async () => store.recent(20));
 

@@ -39,8 +39,12 @@ export async function fetchWallet(address: string): Promise<WalletView> {
   return json(await fetch(`/api/wallet/${encodeURIComponent(address)}`));
 }
 
-export async function fetchFeed(tab: FeedTab, hideHigh: boolean): Promise<FeedResponse> {
-  return json(await fetch(`/api/feed?tab=${tab}&hideHigh=${hideHigh ? 1 : 0}&limit=100`));
+export async function fetchFeed(tab: FeedTab, hideHigh: boolean, limit = 100): Promise<FeedResponse> {
+  return json(await fetch(`/api/feed?tab=${tab}&hideHigh=${hideHigh ? 1 : 0}&limit=${limit}`));
+}
+
+export async function fetchToken(mint: string): Promise<TraceResult> {
+  return json(await fetch(`/api/token/${encodeURIComponent(mint)}`));
 }
 
 /** Null when the live feed never saw the token. */

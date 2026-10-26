@@ -1,7 +1,7 @@
 import type { FeedItem, FeedResponse, RiskyWallets, TraceResult } from "@pumpfun/shared";
 
 export const MINT = "9BB6NFEcjBCtnNLFko2FqVQBq8HHM13kCyYcdQbgpump";
-const DEV = "7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU";
+export const DEV = "7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU";
 const FUNDER = "5Q544fKrFoe6tsEbD7S8EmxGTJYAKtTVhAW5Q5pge4j1";
 const BUNDLER = "9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM";
 const SIB_A = "HN7cABqLq46Es1jh92dQQisAq662SmxELLLsHHe4YWrH";

@@ -10,8 +10,8 @@ async function mockApi(page: Page) {
 test("search leads to a scored token page with the funding graph", async ({ page }) => {
   await mockApi(page);
   await page.goto("/");
-  await page.getByLabel("Token contract address").fill(MINT);
-  await page.getByRole("button", { name: "Trace" }).click();
+  await page.getByLabel("Token or wallet address").fill(MINT);
+  await page.getByRole("button", { name: "Trace", exact: true }).click();
 
   await expect(page).toHaveURL(new RegExp(`/token/${MINT}$`));
   await expect(page.getByRole("heading", { name: /Test Coin/ })).toBeVisible();
@@ -35,9 +35,9 @@ test("shows holders with a bubble map, clusters and flags", async ({ page }) => 
 test("rejects an invalid address inline", async ({ page }) => {
   await mockApi(page);
   await page.goto("/");
-  await page.getByLabel("Token contract address").fill("hello");
-  await page.getByRole("button", { name: "Trace" }).click();
-  await expect(page.getByRole("alert")).toHaveText("That doesn't look like a Solana token address.");
+  await page.getByLabel("Token or wallet address").fill("hello");
+  await page.getByRole("button", { name: "Trace", exact: true }).click();
+  await expect(page.getByRole("alert")).toHaveText("That doesn't look like a Solana address.");
 });
 
 test.describe("mobile", () => {
